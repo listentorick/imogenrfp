@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../utils/api';
-import { PlusIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, ArrowRightIcon } from '@heroicons/react/24/outline';
 
 const Projects = () => {
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -9,7 +10,7 @@ const Projects = () => {
     name: '',
     description: ''
   });
-
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   const { data: projects, isLoading } = useQuery(
@@ -118,15 +119,28 @@ const Projects = () => {
           {projects && projects.length > 0 ? (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {projects.map((project) => (
-                <div key={project.id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
-                    {project.name}
-                  </h3>
-                  {project.description && (
-                    <p className="text-gray-600 mb-4">{project.description}</p>
-                  )}
-                  <div className="text-sm text-gray-500">
-                    Created {new Date(project.created_at).toLocaleDateString()}
+                <div 
+                  key={project.id} 
+                  className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow cursor-pointer"
+                  onClick={() => {
+                    console.log('Navigating to project:', project.id);
+                    console.log('Full URL will be:', `/projects/${project.id}`);
+                    navigate(`/projects/${project.id}`);
+                  }}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">
+                        {project.name}
+                      </h3>
+                      {project.description && (
+                        <p className="text-gray-600 mb-4 line-clamp-2">{project.description}</p>
+                      )}
+                      <div className="text-sm text-gray-500">
+                        Created {new Date(project.created_at).toLocaleDateString()}
+                      </div>
+                    </div>
+                    <ArrowRightIcon className="h-5 w-5 text-gray-400 ml-2 flex-shrink-0" />
                   </div>
                 </div>
               ))}

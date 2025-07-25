@@ -137,3 +137,24 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     email: Optional[str] = None
     tenant_id: Optional[UUID] = None
+
+class DocumentBase(BaseModel):
+    filename: str
+    original_filename: str
+    file_size: int
+    mime_type: str
+    project_id: UUID
+
+class DocumentCreate(DocumentBase):
+    file_path: str
+
+class Document(DocumentBase):
+    id: UUID
+    tenant_id: UUID
+    file_path: str
+    created_by: UUID
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True

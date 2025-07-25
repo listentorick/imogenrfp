@@ -7,6 +7,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Projects from './pages/Projects';
+import ProjectDetail from './pages/ProjectDetail';
 import StandardAnswers from './pages/StandardAnswers';
 import RFPRequests from './pages/RFPRequests';
 import Templates from './pages/Templates';
@@ -34,6 +35,13 @@ function App() {
                 <ProtectedRoute>
                   <Layout>
                     <Projects />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/projects/:projectId" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <ProjectDetail />
                   </Layout>
                 </ProtectedRoute>
               } />

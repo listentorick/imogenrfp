@@ -1,17 +1,22 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi.responses import FileResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from datetime import timedelta
 from typing import List
+import os
+import uuid as uuid_lib
+import shutil
 
 from database import get_db, engine
-from models import Base, User, Tenant, Project, StandardAnswer, RFPRequest, RFPQuestion, Template
+from models import Base, User, Tenant, Project, StandardAnswer, RFPRequest, RFPQuestion, Template, Document
 from schemas import (
     User as UserSchema, UserCreate, Tenant as TenantSchema, TenantCreate,
     Project as ProjectSchema, ProjectCreate, StandardAnswer as StandardAnswerSchema,
     StandardAnswerCreate, RFPRequest as RFPRequestSchema, RFPRequestCreate,
-    Template as TemplateSchema, TemplateCreate, Token
+    Template as TemplateSchema, TemplateCreate, Token, Document as DocumentSchema,
+    DocumentCreate
 )
 from auth import (
     authenticate_user, get_password_hash, create_access_token,
@@ -340,6 +345,100 @@ def bulk_index_answers(
 ):
     count = rag_service.bulk_index_standard_answers(db, str(current_user.tenant_id))
     return {"message": f"Indexed {count} standard answers"}
+
+@app.post("/documents/", response_model=DocumentSchema)
+async def upload_document(
+    file: UploadFile = File(...),
+    project_id: str = Form(...),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    # Verify project exists and user has access
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.tenant_id == current_user.tenant_id
+    ).first()
+    
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Create uploads directory if it doesn't exist
+    upload_dir = f"uploads/{current_user.tenant_id}/{project_id}"
+    os.makedirs(upload_dir, exist_ok=True)
+    
+    # Generate unique filename
+    file_extension = os.path.splitext(file.filename)[1]
+    unique_filename = f"{uuid_lib.uuid4()}{file_extension}"
+    file_path = os.path.join(upload_dir, unique_filename)
+    
+    # Save file
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    
+    # Create document record
+    db_document = Document(
+        tenant_id=current_user.tenant_id,
+        project_id=project_id,
+        filename=unique_filename,
+        original_filename=file.filename,
+        file_path=file_path,
+        file_size=file.size or 0,
+        mime_type=file.content_type or "application/octet-stream",
+        created_by=current_user.id
+    )
+    
+    db.add(db_document)
+    db.commit()
+    db.refresh(db_document)
+    
+    return db_document
+
+@app.get("/projects/{project_id}/documents", response_model=List[DocumentSchema])
+def get_project_documents(
+    project_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    # Verify project exists and user has access
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.tenant_id == current_user.tenant_id
+    ).first()
+    
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    documents = db.query(Document).filter(
+        Document.project_id == project_id,
+        Document.tenant_id == current_user.tenant_id
+    ).all()
+    
+    return documents
+
+@app.get("/documents/{document_id}/download")
+def download_document(
+    document_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    # Get document and verify access
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.tenant_id == current_user.tenant_id
+    ).first()
+    
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    # Check if file exists
+    if not os.path.exists(document.file_path):
+        raise HTTPException(status_code=404, detail="File not found on disk")
+    
+    return FileResponse(
+        path=document.file_path,
+        filename=document.original_filename,
+        media_type=document.mime_type
+    )
 
 if __name__ == "__main__":
     import uvicorn

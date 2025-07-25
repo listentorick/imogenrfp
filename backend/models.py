@@ -19,6 +19,7 @@ class Tenant(Base):
     standard_answers = relationship("StandardAnswer", back_populates="tenant")
     rfp_requests = relationship("RFPRequest", back_populates="tenant")
     templates = relationship("Template", back_populates="tenant")
+    documents = relationship("Document")
 
 class User(Base):
     __tablename__ = "users"
@@ -54,6 +55,7 @@ class Project(Base):
     created_by_user = relationship("User", back_populates="projects")
     standard_answers = relationship("StandardAnswer", back_populates="project")
     rfp_requests = relationship("RFPRequest", back_populates="project")
+    documents = relationship("Document", back_populates="project")
 
 class StandardAnswer(Base):
     __tablename__ = "standard_answers"
@@ -120,3 +122,22 @@ class Template(Base):
 
     tenant = relationship("Tenant", back_populates="templates")
     created_by_user = relationship("User", back_populates="templates")
+
+class Document(Base):
+    __tablename__ = "documents"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=False)
+    filename = Column(String(255), nullable=False)
+    original_filename = Column(String(255), nullable=False)
+    file_path = Column(String(500), nullable=False)
+    file_size = Column(Integer, nullable=False)
+    mime_type = Column(String(100), nullable=False)
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    tenant = relationship("Tenant")
+    project = relationship("Project", back_populates="documents")
+    created_by_user = relationship("User")
