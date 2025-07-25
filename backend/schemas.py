@@ -147,11 +147,14 @@ class DocumentBase(BaseModel):
 
 class DocumentCreate(DocumentBase):
     file_path: str
+    status: str = 'uploaded'
 
 class Document(DocumentBase):
     id: UUID
     tenant_id: UUID
     file_path: str
+    status: str
+    processing_error: Optional[str] = None
     created_by: UUID
     created_at: datetime
     updated_at: datetime

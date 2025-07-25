@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,6 +8,7 @@ from typing import List
 import os
 import uuid as uuid_lib
 import shutil
+import asyncio
 
 from database import get_db, engine
 from models import Base, User, Tenant, Project, StandardAnswer, RFPRequest, RFPQuestion, Template, Document
@@ -18,6 +19,9 @@ from schemas import (
     Template as TemplateSchema, TemplateCreate, Token, Document as DocumentSchema,
     DocumentCreate
 )
+from queue_service import queue_service
+from websocket_manager import websocket_manager
+from chroma_service import chroma_service
 from auth import (
     authenticate_user, get_password_hash, create_access_token,
     get_current_active_user, ACCESS_TOKEN_EXPIRE_MINUTES
@@ -114,6 +118,17 @@ def create_project(
     db.add(db_project)
     db.commit()
     db.refresh(db_project)
+    
+    # Create ChromaDB collection for this project
+    try:
+        chroma_service.create_project_collection(
+            project_id=str(db_project.id),
+            project_name=db_project.name
+        )
+    except Exception as e:
+        # Log error but don't fail project creation
+        print(f"Failed to create ChromaDB collection for project {db_project.id}: {e}")
+    
     return db_project
 
 @app.get("/projects/", response_model=List[ProjectSchema])
@@ -391,6 +406,18 @@ async def upload_document(
     db.commit()
     db.refresh(db_document)
     
+    # Queue document for processing
+    try:
+        queue_service.enqueue_document_processing(
+            document_id=str(db_document.id),
+            tenant_id=str(current_user.tenant_id),
+            project_id=str(project_id),
+            file_path=file_path
+        )
+    except Exception as e:
+        # Log error but don't fail the upload
+        print(f"Failed to queue document processing: {e}")
+    
     return db_document
 
 @app.get("/projects/{project_id}/documents", response_model=List[DocumentSchema])
@@ -439,6 +466,22 @@ def download_document(
         filename=document.original_filename,
         media_type=document.mime_type
     )
+
+@app.websocket("/ws/{tenant_id}")
+async def websocket_endpoint(websocket: WebSocket, tenant_id: str):
+    await websocket_manager.connect(websocket, tenant_id)
+    try:
+        while True:
+            # Keep connection alive
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        websocket_manager.disconnect(websocket, tenant_id)
+
+# Removed problematic startup event for now
+# @app.on_event("startup")
+# async def startup_event():
+#     # Start WebSocket listener in background
+#     asyncio.create_task(websocket_manager.listen_for_updates())
 
 if __name__ == "__main__":
     import uvicorn

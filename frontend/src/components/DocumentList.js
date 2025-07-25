@@ -1,9 +1,14 @@
-import React from 'react';
-import { useQuery } from 'react-query';
+import React, { useEffect, useState } from 'react';
+import { useQuery, useQueryClient } from 'react-query';
 import { api } from '../utils/api';
 import { DocumentIcon, CloudArrowUpIcon } from '@heroicons/react/24/outline';
+import { useAuth } from '../contexts/AuthContext';
 
 const DocumentList = ({ projectId, onUploadClick }) => {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const [socket, setSocket] = useState(null);
+  
   const { data: documents, isLoading } = useQuery(
     ['project-documents', projectId],
     () => api.get(`/projects/${projectId}/documents`).then(res => res.data),
@@ -11,6 +16,37 @@ const DocumentList = ({ projectId, onUploadClick }) => {
       enabled: !!projectId
     }
   );
+
+  // WebSocket connection for real-time updates
+  useEffect(() => {
+    if (user?.tenant_id) {
+      const ws = new WebSocket(`ws://localhost:8000/ws/${user.tenant_id}`);
+      
+      ws.onopen = () => {
+        console.log('WebSocket connected');
+        setSocket(ws);
+      };
+      
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.type === 'document_status_update') {
+          // Refresh document list when status updates
+          queryClient.invalidateQueries(['project-documents', projectId]);
+        }
+      };
+      
+      ws.onclose = () => {
+        console.log('WebSocket disconnected');
+        setSocket(null);
+      };
+      
+      return () => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.close();
+        }
+      };
+    }
+  }, [user?.tenant_id, projectId, queryClient]);
 
   const formatFileSize = (bytes) => {
     if (bytes === 0) return '0 Bytes';
@@ -28,6 +64,34 @@ const DocumentList = ({ projectId, onUploadClick }) => {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const getStatusBadge = (status) => {
+    const badges = {
+      uploaded: { 
+        text: 'Uploaded', 
+        className: 'bg-blue-100 text-blue-800' 
+      },
+      processing: { 
+        text: 'Processing...', 
+        className: 'bg-yellow-100 text-yellow-800' 
+      },
+      processed: { 
+        text: 'Processed', 
+        className: 'bg-green-100 text-green-800' 
+      },
+      error: { 
+        text: 'Error', 
+        className: 'bg-red-100 text-red-800' 
+      }
+    };
+    
+    const badge = badges[status] || badges.uploaded;
+    return (
+      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${badge.className}`}>
+        {badge.text}
+      </span>
+    );
   };
 
   const handleDownload = (doc) => {
@@ -95,7 +159,7 @@ const DocumentList = ({ projectId, onUploadClick }) => {
               <div className="flex items-center">
                 <DocumentIcon className="h-5 w-5 text-gray-400 mr-3" />
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between mb-2">
                     <button
                       onClick={() => handleDownload(document)}
                       className="text-sm font-medium text-blue-600 hover:text-blue-800 truncate text-left"
@@ -103,11 +167,14 @@ const DocumentList = ({ projectId, onUploadClick }) => {
                     >
                       {document.original_filename}
                     </button>
-                    <p className="text-xs text-gray-500 ml-2">
-                      {formatFileSize(document.file_size)}
-                    </p>
+                    <div className="flex items-center space-x-2">
+                      {getStatusBadge(document.status)}
+                      <p className="text-xs text-gray-500">
+                        {formatFileSize(document.file_size)}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between mt-1">
+                  <div className="flex items-center justify-between">
                     <p className="text-xs text-gray-500">
                       {document.mime_type}
                     </p>
@@ -115,6 +182,11 @@ const DocumentList = ({ projectId, onUploadClick }) => {
                       {formatDate(document.created_at)}
                     </p>
                   </div>
+                  {document.processing_error && (
+                    <div className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded">
+                      Error: {document.processing_error}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
