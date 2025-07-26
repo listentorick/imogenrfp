@@ -115,6 +115,36 @@ class ChromaService:
             logger.error(f"Error adding document {document_id} to project {project_id}: {e}")
             return False
     
+    def get_all_documents_in_project(self, project_id: str) -> List[Dict[str, Any]]:
+        """Get all documents stored in a project's collection for debugging"""
+        try:
+            collection = self.get_collection(project_id)
+            if not collection:
+                logger.warning(f"No collection found for project {project_id}")
+                return []
+            
+            # Get all documents
+            results = collection.get(include=['documents', 'metadatas'])
+            
+            documents = results.get('documents', [])
+            metadatas = results.get('metadatas', [])
+            ids = results.get('ids', [])
+            
+            formatted_results = []
+            for i, doc in enumerate(documents):
+                formatted_results.append({
+                    'id': ids[i] if i < len(ids) else None,
+                    'content': doc,
+                    'metadata': metadatas[i] if i < len(metadatas) else {}
+                })
+            
+            logger.info(f"Retrieved {len(formatted_results)} documents from project {project_id}")
+            return formatted_results
+            
+        except Exception as e:
+            logger.error(f"Error getting documents from project {project_id}: {e}")
+            return []
+    
     def search_project_documents(self, project_id: str, query_text: str, n_results: int = 5,
                                 tenant_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """Search documents within a project's collection"""
@@ -144,11 +174,21 @@ class ChromaService:
                 metadatas = results.get('metadatas', [[]])[0]
                 distances = results.get('distances', [[]])[0]
                 
+                logger.info(f"Raw search results for query '{query_text}': {len(documents)} documents found")
+                
                 for i, doc in enumerate(documents):
+                    distance = distances[i] if i < len(distances) else None
+                    metadata = metadatas[i] if i < len(metadatas) else {}
+                    
+                    # Log relevance debugging info
+                    if distance is not None:
+                        logger.info(f"Result {i+1}: distance={distance:.4f}, chunk_index={metadata.get('chunk_index', 'unknown')}")
+                        logger.debug(f"Content preview: {doc[:100]}...")
+                    
                     formatted_results.append({
                         'content': doc,
-                        'metadata': metadatas[i] if i < len(metadatas) else {},
-                        'distance': distances[i] if i < len(distances) else None
+                        'metadata': metadata,
+                        'distance': distance
                     })
             
             logger.info(f"Search in project {project_id} returned {len(formatted_results)} results")
@@ -157,6 +197,35 @@ class ChromaService:
         except Exception as e:
             logger.error(f"Error searching project {project_id}: {e}")
             return []
+    
+    def clear_project_collection(self, project_id: str) -> bool:
+        """Clear all documents from a project's collection"""
+        try:
+            collection = self.get_collection(project_id)
+            if not collection:
+                logger.warning(f"No collection found for project {project_id}")
+                return True  # Already empty
+            
+            # Delete the entire collection and recreate it
+            self.client.delete_collection(name=str(project_id))
+            logger.info(f"Deleted collection for project {project_id}")
+            
+            # Recreate empty collection
+            self.client.create_collection(
+                name=str(project_id),
+                metadata={
+                    "description": f"Document collection for project: {project_id}",
+                    "project_id": project_id,
+                    "created_by": "rfp_system",
+                    "recreated_for": "langchain_chunking"
+                }
+            )
+            logger.info(f"Recreated empty collection for project {project_id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error clearing collection for project {project_id}: {e}")
+            return False
     
     def remove_document_from_project(self, project_id: str, document_id: str) -> bool:
         """Remove all chunks of a document from a project's collection"""

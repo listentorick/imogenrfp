@@ -14,6 +14,7 @@ from chroma_service import chroma_service
 import PyPDF2
 from docx import Document as DocxDocument
 import magic
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -22,6 +23,14 @@ class DocumentProcessor:
     def __init__(self):
         # We'll use the chroma_service instead of direct client
         self.chroma_service = chroma_service
+        
+        # Initialize LangChain text splitter
+        self.text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=1000,
+            chunk_overlap=200,
+            length_function=len,
+            separators=["\n\n", "\n", ". ", " ", ""]  # Prioritize paragraph, sentence, then word breaks
+        )
     
     def extract_text_from_file(self, file_path: str) -> str:
         """Extract text content from various file types"""
@@ -76,8 +85,8 @@ class DocumentProcessor:
     def store_in_vector_db(self, project_id: str, document_id: str, text: str, metadata: dict):
         """Store document text in ChromaDB using chroma_service"""
         try:
-            # Split text into chunks for better vector storage
-            chunks = self._split_text_into_chunks(text)
+            # Split text into chunks using LangChain's RecursiveCharacterTextSplitter
+            chunks = self.text_splitter.split_text(text)
             
             # Use chroma_service to store the document
             success = self.chroma_service.add_document_to_project(
@@ -96,36 +105,6 @@ class DocumentProcessor:
         except Exception as e:
             logger.error(f"Error storing document {document_id} in vector DB: {e}")
             return False
-    
-    def _split_text_into_chunks(self, text: str, chunk_size: int = 1000, overlap: int = 200) -> list:
-        """Split text into overlapping chunks"""
-        if len(text) <= chunk_size:
-            return [text]
-        
-        chunks = []
-        start = 0
-        
-        while start < len(text):
-            end = start + chunk_size
-            
-            # Try to break at a sentence or word boundary
-            if end < len(text):
-                # Look for sentence endings
-                for i in range(end, max(start + chunk_size // 2, end - 100), -1):
-                    if text[i] in '.!?':
-                        end = i + 1
-                        break
-                else:
-                    # Look for word boundaries
-                    for i in range(end, max(start + chunk_size // 2, end - 50), -1):
-                        if text[i] == ' ':
-                            end = i
-                            break
-            
-            chunks.append(text[start:end].strip())
-            start = max(end - overlap, start + 1)
-        
-        return [chunk for chunk in chunks if chunk.strip()]
     
     def update_document_status(self, document_id: str, status: str, error_message: Optional[str] = None, tenant_id: str = None):
         """Update document status in database and notify via WebSocket"""

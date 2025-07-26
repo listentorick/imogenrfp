@@ -523,6 +523,97 @@ def search_project_documents(
             detail=f"Search failed: {str(e)}"
         )
 
+@app.get("/projects/{project_id}/documents/debug")
+async def debug_project_documents(
+    project_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Debug endpoint to see all documents stored in ChromaDB for a project"""
+    # Verify project access
+    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_user.tenant_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    try:
+        all_docs = chroma_service.get_all_documents_in_project(project_id)
+        return {"project_id": project_id, "total_documents": len(all_docs), "documents": all_docs}
+    
+    except Exception as e:
+        logger.error(f"Error getting debug documents: {e}")
+        raise HTTPException(status_code=500, detail="Error getting debug documents")
+
+@app.post("/projects/{project_id}/documents/clear-chunks")
+async def clear_project_chunks(
+    project_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Clear all chunks from a project's ChromaDB collection"""
+    # Verify project access
+    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_user.tenant_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    try:
+        success = chroma_service.clear_project_collection(project_id)
+        if success:
+            return {"message": f"Successfully cleared all chunks for project {project_id}"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to clear chunks")
+    
+    except Exception as e:
+        logger.error(f"Error clearing chunks: {e}")
+        raise HTTPException(status_code=500, detail="Error clearing chunks")
+
+@app.post("/projects/{project_id}/documents/reprocess")
+async def reprocess_project_documents(
+    project_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Reprocess all documents in a project with the new chunking algorithm"""
+    # Verify project access
+    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_user.tenant_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    try:
+        # Clear existing chunks
+        chroma_service.clear_project_collection(project_id)
+        
+        # Get all processed documents for this project
+        documents = db.query(Document).filter(
+            Document.project_id == project_id,
+            Document.status == 'processed'
+        ).all()
+        
+        # Queue documents for reprocessing
+        reprocessed_count = 0
+        for doc in documents:
+            if doc.file_path and os.path.exists(doc.file_path):
+                # Reset status and queue for processing
+                doc.status = 'pending'
+                db.commit()
+                
+                # Queue for processing with new chunking
+                queue_service.enqueue_document_processing({
+                    'document_id': doc.id,
+                    'file_path': doc.file_path,
+                    'tenant_id': str(current_user.tenant_id),
+                    'project_id': project_id
+                })
+                reprocessed_count += 1
+        
+        return {
+            "message": f"Reprocessing {reprocessed_count} documents with LangChain chunking",
+            "reprocessed_count": reprocessed_count
+        }
+    
+    except Exception as e:
+        logger.error(f"Error reprocessing documents: {e}")
+        raise HTTPException(status_code=500, detail="Error reprocessing documents")
+
 # Deals endpoints
 @app.post("/deals/", response_model=DealSchema)
 def create_deal(
