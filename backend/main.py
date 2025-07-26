@@ -489,23 +489,13 @@ def search_project_documents(
         raise HTTPException(status_code=400, detail="Query cannot be empty")
     
     try:
-        # Temporarily use mock service while ChromaDB compatibility is fixed
-        from mock_search_service import mock_search_service
-        search_results = mock_search_service.search_project_documents(
+        # Use ChromaDB for vector search
+        search_results = chroma_service.search_project_documents(
             project_id=project_id,
             query_text=query,
             n_results=min(limit, 20),  # Cap at 20 results
             tenant_id=str(current_user.tenant_id)
         )
-        
-        # Fallback to ChromaDB if mock doesn't have data
-        if not search_results:
-            search_results = chroma_service.search_project_documents(
-                project_id=project_id,
-                query_text=query,
-                n_results=min(limit, 20),
-                tenant_id=str(current_user.tenant_id)
-            )
         
         # Format results for frontend
         formatted_results = []
