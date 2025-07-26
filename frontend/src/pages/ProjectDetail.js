@@ -1,8 +1,8 @@
 import React, { useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery } from 'react-query';
+import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { api, searchProjectDocuments } from '../utils/api';
-import { ArrowLeftIcon, MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, MagnifyingGlassIcon, XMarkIcon, PencilIcon } from '@heroicons/react/24/outline';
 import DocumentUpload from '../components/DocumentUpload';
 import DocumentsTable from '../components/DocumentsTable';
 import DealsTable from '../components/DealsTable';
@@ -11,6 +11,7 @@ import DealForm from '../components/DealForm';
 const ProjectDetail = () => {
   const { projectId } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState(null);
@@ -19,6 +20,8 @@ const ProjectDetail = () => {
   const [searchError, setSearchError] = useState(null);
   const [showCreateDeal, setShowCreateDeal] = useState(false);
   const [activeTab, setActiveTab] = useState('deals');
+  const [isEditing, setIsEditing] = useState(false);
+  const [editData, setEditData] = useState({});
 
   console.log('ProjectDetail loaded with projectId:', projectId);
 
@@ -60,9 +63,60 @@ const ProjectDetail = () => {
       res.data.find(p => p.id === projectId)
     ),
     {
-      enabled: !!projectId
+      enabled: !!projectId,
+      onSuccess: (data) => {
+        if (data && !isEditing) {
+          setEditData({
+            name: data.name,
+            description: data.description || ''
+          });
+        }
+      }
     }
   );
+
+  const updateProjectMutation = useMutation(
+    (data) => api.put(`/projects/${projectId}`, data),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries(['project', projectId]);
+        setIsEditing(false);
+      }
+    }
+  );
+
+  const deleteProjectMutation = useMutation(
+    () => api.delete(`/projects/${projectId}`),
+    {
+      onSuccess: () => {
+        navigate('/projects');
+      }
+    }
+  );
+
+  const handleEdit = () => {
+    setIsEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    if (project) {
+      setEditData({
+        name: project.name,
+        description: project.description || ''
+      });
+    }
+  };
+
+  const handleSaveEdit = () => {
+    updateProjectMutation.mutate(editData);
+  };
+
+  const handleDelete = () => {
+    if (window.confirm('Are you sure you want to delete this project? This will also delete all associated deals and documents.')) {
+      deleteProjectMutation.mutate();
+    }
+  };
 
   if (isLoading) {
     return <div className="flex justify-center py-8">Loading project...</div>;
@@ -94,48 +148,74 @@ const ProjectDetail = () => {
         </button>
         
         <div className="bg-white shadow rounded-lg p-6">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-start justify-between mb-4">
             <div className="flex-1">
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">{project.name}</h1>
-              {project.description && (
-                <p className="text-gray-600 mb-2">{project.description}</p>
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={editData.name}
+                  onChange={(e) => setEditData(prev => ({ ...prev, name: e.target.value }))}
+                  className="text-2xl font-bold text-gray-900 border-b-2 border-blue-500 bg-transparent focus:outline-none mb-2"
+                />
+              ) : (
+                <h1 className="text-2xl font-bold text-gray-900 mb-2">{project.name}</h1>
               )}
+              
+              {isEditing ? (
+                <textarea
+                  value={editData.description}
+                  onChange={(e) => setEditData(prev => ({ ...prev, description: e.target.value }))}
+                  rows={3}
+                  className="w-full text-gray-600 border border-gray-300 rounded-md p-3 mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Enter project description..."
+                />
+              ) : (
+                project.description && (
+                  <p className="text-gray-600 mb-2">{project.description}</p>
+                )
+              )}
+              
               <div className="text-sm text-gray-500">
                 Created {new Date(project.created_at).toLocaleDateString()}
               </div>
             </div>
             
-            {/* Search Bar - Only show on documents tab */}
-            {activeTab === 'documents' && (
-              <div className="flex-shrink-0 ml-6 w-80">
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Search documents..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyPress={handleSearchKeyPress}
-                    className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                  <MagnifyingGlassIcon className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-                  {searchQuery && (
-                    <button
-                      onClick={clearSearch}
-                      className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
-                    >
-                      <XMarkIcon className="h-5 w-5" />
-                    </button>
-                  )}
-                </div>
-                <button
-                  onClick={handleSearch}
-                  disabled={!searchQuery.trim() || isSearching}
-                  className="mt-2 w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm"
-                >
-                  {isSearching ? 'Searching...' : 'Search'}
-                </button>
-              </div>
-            )}
+            <div className="flex space-x-2">
+              {isEditing ? (
+                <>
+                  <button
+                    onClick={handleSaveEdit}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                    disabled={updateProjectMutation.isLoading}
+                  >
+                    {updateProjectMutation.isLoading ? 'Saving...' : 'Save'}
+                  </button>
+                  <button
+                    onClick={handleCancelEdit}
+                    className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={handleEdit}
+                    className="flex items-center px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                  >
+                    <PencilIcon className="h-4 w-4 mr-2" />
+                    Edit
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                    disabled={deleteProjectMutation.isLoading}
+                  >
+                    {deleteProjectMutation.isLoading ? 'Deleting...' : 'Delete'}
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -251,10 +331,49 @@ const ProjectDetail = () => {
         )}
         
         {activeTab === 'documents' && (
-          <DocumentsTable 
-            projectId={projectId}
-            onUploadClick={() => setShowUploadModal(true)}
-          />
+          <div>
+            {/* Search Bar for documents */}
+            <div className="mb-6 bg-white shadow rounded-lg p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-900">Document Search</h3>
+              </div>
+              <div className="flex items-center space-x-4">
+                <div className="flex-1">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Search documents..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyPress={handleSearchKeyPress}
+                      className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    <MagnifyingGlassIcon className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+                    {searchQuery && (
+                      <button
+                        onClick={clearSearch}
+                        className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+                      >
+                        <XMarkIcon className="h-5 w-5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <button
+                  onClick={handleSearch}
+                  disabled={!searchQuery.trim() || isSearching}
+                  className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  {isSearching ? 'Searching...' : 'Search'}
+                </button>
+              </div>
+            </div>
+            
+            <DocumentsTable 
+              projectId={projectId}
+              onUploadClick={() => setShowUploadModal(true)}
+            />
+          </div>
         )}
       </div>
 

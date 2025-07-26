@@ -34,7 +34,7 @@ const Layout = ({ children }) => {
         {/* Sidebar */}
         <div className="w-64 bg-white shadow-lg">
           <div className="p-6">
-            <h1 className="text-2xl font-bold text-gray-900">RFP SaaS</h1>
+            <h1 className="text-2xl font-bold text-gray-900">ImogenRFP</h1>
             <p className="text-sm text-gray-600 mt-1">{user?.email}</p>
           </div>
           
