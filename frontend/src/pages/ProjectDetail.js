@@ -4,7 +4,7 @@ import { useQuery } from 'react-query';
 import { api, searchProjectDocuments } from '../utils/api';
 import { ArrowLeftIcon, MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import DocumentUpload from '../components/DocumentUpload';
-import DocumentList from '../components/DocumentList';
+import DocumentsTable from '../components/DocumentsTable';
 import DealsTable from '../components/DealsTable';
 import DealForm from '../components/DealForm';
 
@@ -83,7 +83,7 @@ const ProjectDetail = () => {
   }
 
   return (
-    <div>
+    <div className="px-4 sm:px-6 lg:px-8">
       <div className="mb-6">
         <button
           onClick={() => navigate('/projects')}
@@ -251,7 +251,7 @@ const ProjectDetail = () => {
         )}
         
         {activeTab === 'documents' && (
-          <DocumentList 
+          <DocumentsTable 
             projectId={projectId}
             onUploadClick={() => setShowUploadModal(true)}
           />
