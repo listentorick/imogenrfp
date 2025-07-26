@@ -11,13 +11,13 @@ import shutil
 import asyncio
 
 from database import get_db, engine
-from models import Base, User, Tenant, Project, StandardAnswer, RFPRequest, RFPQuestion, Template, Document
+from models import Base, User, Tenant, Project, StandardAnswer, RFPRequest, RFPQuestion, Template, Document, Deal
 from schemas import (
     User as UserSchema, UserCreate, Tenant as TenantSchema, TenantCreate,
     Project as ProjectSchema, ProjectCreate, StandardAnswer as StandardAnswerSchema,
     StandardAnswerCreate, RFPRequest as RFPRequestSchema, RFPRequestCreate,
     Template as TemplateSchema, TemplateCreate, Token, Document as DocumentSchema,
-    DocumentCreate
+    DocumentCreate, Deal as DealSchema, DealCreate, DealUpdate
 )
 from queue_service import queue_service
 from websocket_manager import websocket_manager
@@ -532,6 +532,111 @@ def search_project_documents(
             status_code=500, 
             detail=f"Search failed: {str(e)}"
         )
+
+# Deals endpoints
+@app.post("/deals/", response_model=DealSchema)
+def create_deal(
+    deal: DealCreate,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Create a new deal"""
+    # Verify project exists and user has access
+    project = db.query(Project).filter(
+        Project.id == deal.project_id,
+        Project.tenant_id == current_user.tenant_id
+    ).first()
+    
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    db_deal = Deal(
+        **deal.dict(),
+        tenant_id=current_user.tenant_id,
+        created_by=current_user.id
+    )
+    db.add(db_deal)
+    db.commit()
+    db.refresh(db_deal)
+    return db_deal
+
+@app.get("/deals/", response_model=List[DealSchema])
+def read_deals(
+    project_id: str = None,
+    skip: int = 0,
+    limit: int = 100,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get deals, optionally filtered by project"""
+    query = db.query(Deal).filter(Deal.tenant_id == current_user.tenant_id)
+    
+    if project_id:
+        query = query.filter(Deal.project_id == project_id)
+    
+    deals = query.offset(skip).limit(limit).all()
+    return deals
+
+@app.get("/deals/{deal_id}", response_model=DealSchema)
+def read_deal(
+    deal_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get a specific deal"""
+    deal = db.query(Deal).filter(
+        Deal.id == deal_id,
+        Deal.tenant_id == current_user.tenant_id
+    ).first()
+    
+    if not deal:
+        raise HTTPException(status_code=404, detail="Deal not found")
+    
+    return deal
+
+@app.put("/deals/{deal_id}", response_model=DealSchema)
+def update_deal(
+    deal_id: str,
+    deal_update: DealUpdate,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Update a deal"""
+    deal = db.query(Deal).filter(
+        Deal.id == deal_id,
+        Deal.tenant_id == current_user.tenant_id
+    ).first()
+    
+    if not deal:
+        raise HTTPException(status_code=404, detail="Deal not found")
+    
+    # Update only provided fields
+    update_data = deal_update.dict(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(deal, field, value)
+    
+    db.commit()
+    db.refresh(deal)
+    return deal
+
+@app.delete("/deals/{deal_id}")
+def delete_deal(
+    deal_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Delete a deal"""
+    deal = db.query(Deal).filter(
+        Deal.id == deal_id,
+        Deal.tenant_id == current_user.tenant_id
+    ).first()
+    
+    if not deal:
+        raise HTTPException(status_code=404, detail="Deal not found")
+    
+    db.delete(deal)
+    db.commit()
+    return {"message": "Deal deleted successfully"}
 
 @app.websocket("/ws/{tenant_id}")
 async def websocket_endpoint(websocket: WebSocket, tenant_id: str):

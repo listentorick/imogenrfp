@@ -8,6 +8,7 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Projects from './pages/Projects';
 import ProjectDetail from './pages/ProjectDetail';
+import DealDetail from './pages/DealDetail';
 import StandardAnswers from './pages/StandardAnswers';
 import RFPRequests from './pages/RFPRequests';
 import Templates from './pages/Templates';
@@ -42,6 +43,13 @@ function App() {
                 <ProtectedRoute>
                   <Layout>
                     <ProjectDetail />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/deals/:dealId" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <DealDetail />
                   </Layout>
                 </ProtectedRoute>
               } />

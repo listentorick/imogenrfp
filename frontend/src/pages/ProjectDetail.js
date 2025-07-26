@@ -5,6 +5,8 @@ import { api, searchProjectDocuments } from '../utils/api';
 import { ArrowLeftIcon, MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import DocumentUpload from '../components/DocumentUpload';
 import DocumentList from '../components/DocumentList';
+import DealsTable from '../components/DealsTable';
+import DealForm from '../components/DealForm';
 
 const ProjectDetail = () => {
   const { projectId } = useParams();
@@ -15,6 +17,8 @@ const ProjectDetail = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [searchError, setSearchError] = useState(null);
+  const [showCreateDeal, setShowCreateDeal] = useState(false);
+  const [activeTab, setActiveTab] = useState('deals');
 
   console.log('ProjectDetail loaded with projectId:', projectId);
 
@@ -101,35 +105,37 @@ const ProjectDetail = () => {
               </div>
             </div>
             
-            {/* Search Bar */}
-            <div className="flex-shrink-0 ml-6 w-80">
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Search documents..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyPress={handleSearchKeyPress}
-                  className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-                <MagnifyingGlassIcon className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-                {searchQuery && (
-                  <button
-                    onClick={clearSearch}
-                    className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
-                  >
-                    <XMarkIcon className="h-5 w-5" />
-                  </button>
-                )}
+            {/* Search Bar - Only show on documents tab */}
+            {activeTab === 'documents' && (
+              <div className="flex-shrink-0 ml-6 w-80">
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search documents..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyPress={handleSearchKeyPress}
+                    className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <MagnifyingGlassIcon className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+                  {searchQuery && (
+                    <button
+                      onClick={clearSearch}
+                      className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+                    >
+                      <XMarkIcon className="h-5 w-5" />
+                    </button>
+                  )}
+                </div>
+                <button
+                  onClick={handleSearch}
+                  disabled={!searchQuery.trim() || isSearching}
+                  className="mt-2 w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm"
+                >
+                  {isSearching ? 'Searching...' : 'Search'}
+                </button>
               </div>
-              <button
-                onClick={handleSearch}
-                disabled={!searchQuery.trim() || isSearching}
-                className="mt-2 w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm"
-              >
-                {isSearching ? 'Searching...' : 'Search'}
-              </button>
-            </div>
+            )}
           </div>
         </div>
       </div>
@@ -207,40 +213,63 @@ const ProjectDetail = () => {
         </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div>
+      {/* Tabs Navigation */}
+      <div className="mb-6">
+        <div className="border-b border-gray-200">
+          <nav className="-mb-px flex space-x-8">
+            <button
+              onClick={() => setActiveTab('deals')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'deals'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Deals
+            </button>
+            <button
+              onClick={() => setActiveTab('documents')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'documents'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Documents
+            </button>
+          </nav>
+        </div>
+      </div>
+
+      {/* Tab Content */}
+      <div className="mb-6">
+        {activeTab === 'deals' && (
+          <DealsTable 
+            projectId={projectId}
+            onCreateDeal={() => setShowCreateDeal(true)}
+          />
+        )}
+        
+        {activeTab === 'documents' && (
           <DocumentList 
             projectId={projectId}
             onUploadClick={() => setShowUploadModal(true)}
           />
-        </div>
-        
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Project Actions</h3>
-          <div className="space-y-3">
-            <button
-              onClick={() => navigate(`/standard-answers?project_id=${projectId}`)}
-              className="w-full text-left px-4 py-3 bg-gray-50 hover:bg-gray-100 rounded-md transition-colors"
-            >
-              <div className="font-medium text-gray-900">Standard Answers</div>
-              <div className="text-sm text-gray-600">Manage knowledge base for this project</div>
-            </button>
-            
-            <button
-              onClick={() => navigate(`/rfp-requests?project_id=${projectId}`)}
-              className="w-full text-left px-4 py-3 bg-gray-50 hover:bg-gray-100 rounded-md transition-colors"
-            >
-              <div className="font-medium text-gray-900">RFP Requests</div>
-              <div className="text-sm text-gray-600">View and manage RFP requests</div>
-            </button>
-          </div>
-        </div>
+        )}
       </div>
 
       {showUploadModal && (
         <DocumentUpload
           projectId={projectId}
           onClose={() => setShowUploadModal(false)}
+        />
+      )}
+
+      {showCreateDeal && (
+        <DealForm
+          projectId={projectId}
+          onClose={() => setShowCreateDeal(false)}
+          onSuccess={() => window.location.reload()} // Simple refresh for now
         />
       )}
     </div>

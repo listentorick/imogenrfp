@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Text, Boolean, DateTime, ForeignKey, Integer, Date, ARRAY
+from sqlalchemy import Column, String, Text, Boolean, DateTime, ForeignKey, Integer, Date, ARRAY, Numeric
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -20,6 +20,7 @@ class Tenant(Base):
     rfp_requests = relationship("RFPRequest", back_populates="tenant")
     templates = relationship("Template", back_populates="tenant")
     documents = relationship("Document")
+    deals = relationship("Deal", back_populates="tenant")
 
 class User(Base):
     __tablename__ = "users"
@@ -39,6 +40,7 @@ class User(Base):
     standard_answers = relationship("StandardAnswer", back_populates="created_by_user")
     rfp_requests = relationship("RFPRequest", back_populates="created_by_user")
     templates = relationship("Template", back_populates="created_by_user")
+    deals = relationship("Deal", back_populates="created_by_user")
 
 class Project(Base):
     __tablename__ = "projects"
@@ -56,6 +58,7 @@ class Project(Base):
     standard_answers = relationship("StandardAnswer", back_populates="project")
     rfp_requests = relationship("RFPRequest", back_populates="project")
     documents = relationship("Document", back_populates="project")
+    deals = relationship("Deal", back_populates="project")
 
 class StandardAnswer(Base):
     __tablename__ = "standard_answers"
@@ -80,6 +83,7 @@ class RFPRequest(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
     project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=False)
+    deal_id = Column(UUID(as_uuid=True), ForeignKey("deals.id"), nullable=True)  # Optional deal association
     title = Column(String(255), nullable=False)
     client_name = Column(String(255))
     due_date = Column(Date)
@@ -90,6 +94,7 @@ class RFPRequest(Base):
 
     tenant = relationship("Tenant", back_populates="rfp_requests")
     project = relationship("Project", back_populates="rfp_requests")
+    deal = relationship("Deal", back_populates="rfp_requests")
     created_by_user = relationship("User", back_populates="rfp_requests")
     questions = relationship("RFPQuestion", back_populates="rfp_request")
 
@@ -143,3 +148,25 @@ class Document(Base):
     tenant = relationship("Tenant")
     project = relationship("Project", back_populates="documents")
     created_by_user = relationship("User")
+
+class Deal(Base):
+    __tablename__ = "deals"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=False)
+    name = Column(String(255), nullable=False)
+    company = Column(String(255), nullable=False)
+    value = Column(Numeric(precision=10, scale=2))  # Deal value in currency
+    status = Column(String(100), nullable=False, default="prospect")  # prospect, proposal, negotiation, closed_won, closed_lost
+    description = Column(Text)
+    expected_close_date = Column(Date)
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    # Relationships
+    tenant = relationship("Tenant", back_populates="deals")
+    project = relationship("Project", back_populates="deals")
+    created_by_user = relationship("User", back_populates="deals")
+    rfp_requests = relationship("RFPRequest", back_populates="deal")

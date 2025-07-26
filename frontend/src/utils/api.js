@@ -32,4 +32,57 @@ export const searchProjectDocuments = async (projectId, query, limit = 10) => {
   return response.data;
 };
 
+// Deals API functions
+export const createDeal = async (dealData) => {
+  const token = localStorage.getItem('token');
+  const response = await api.post('/deals/', dealData, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return response.data;
+};
+
+export const getDeals = async (projectId = null) => {
+  const token = localStorage.getItem('token');
+  const params = projectId ? { project_id: projectId } : {};
+  const response = await api.get('/deals/', {
+    params,
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return response.data;
+};
+
+export const getDeal = async (dealId) => {
+  const token = localStorage.getItem('token');
+  const response = await api.get(`/deals/${dealId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return response.data;
+};
+
+export const updateDeal = async (dealId, dealData) => {
+  const token = localStorage.getItem('token');
+  const response = await api.put(`/deals/${dealId}`, dealData, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return response.data;
+};
+
+export const deleteDeal = async (dealId) => {
+  const token = localStorage.getItem('token');
+  const response = await api.delete(`/deals/${dealId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return response.data;
+};
+
 export default api;

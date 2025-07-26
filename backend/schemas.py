@@ -1,6 +1,7 @@
 from pydantic import BaseModel, EmailStr
 from typing import Optional, List
 from datetime import datetime, date
+from decimal import Decimal
 from uuid import UUID
 
 class TenantBase(BaseModel):
@@ -155,6 +156,37 @@ class Document(DocumentBase):
     file_path: str
     status: str
     processing_error: Optional[str] = None
+    created_by: UUID
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+# Deal schemas
+class DealBase(BaseModel):
+    name: str
+    company: str
+    value: Optional[Decimal] = None
+    status: str = "prospect"
+    description: Optional[str] = None
+    expected_close_date: Optional[date] = None
+
+class DealCreate(DealBase):
+    project_id: UUID
+
+class DealUpdate(BaseModel):
+    name: Optional[str] = None
+    company: Optional[str] = None
+    value: Optional[Decimal] = None
+    status: Optional[str] = None
+    description: Optional[str] = None
+    expected_close_date: Optional[date] = None
+
+class Deal(DealBase):
+    id: UUID
+    tenant_id: UUID
+    project_id: UUID
     created_by: UUID
     created_at: datetime
     updated_at: datetime
