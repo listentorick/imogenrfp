@@ -3,8 +3,6 @@ import time
 import logging
 from typing import Optional
 from pathlib import Path
-import chromadb
-from chromadb.config import Settings
 from sqlalchemy.orm import Session
 from database import get_db
 from models import Document
@@ -22,20 +20,8 @@ logger = logging.getLogger(__name__)
 
 class DocumentProcessor:
     def __init__(self):
-        # Initialize ChromaDB client
-        chroma_host = os.getenv('CHROMA_HOST', 'chromadb')
-        chroma_port = os.getenv('CHROMA_PORT', '8000')
-        
-        self.chroma_client = chromadb.HttpClient(
-            host=chroma_host,
-            port=int(chroma_port)
-        )
-        
-        # Get or create collection for documents
-        try:
-            self.collection = self.chroma_client.get_collection("documents")
-        except:
-            self.collection = self.chroma_client.create_collection("documents")
+        # We'll use the chroma_service instead of direct client
+        self.chroma_service = chroma_service
     
     def extract_text_from_file(self, file_path: str) -> str:
         """Extract text content from various file types"""
@@ -87,28 +73,26 @@ class DocumentProcessor:
             logger.error(f"Error reading text file {file_path}: {e}")
             return ""
     
-    def store_in_vector_db(self, document_id: str, text: str, metadata: dict):
-        """Store document text in ChromaDB"""
+    def store_in_vector_db(self, project_id: str, document_id: str, text: str, metadata: dict):
+        """Store document text in ChromaDB using chroma_service"""
         try:
             # Split text into chunks for better vector storage
             chunks = self._split_text_into_chunks(text)
             
-            # Store each chunk with metadata
-            for i, chunk in enumerate(chunks):
-                chunk_id = f"{document_id}_chunk_{i}"
-                self.collection.add(
-                    documents=[chunk],
-                    metadatas=[{
-                        **metadata,
-                        'document_id': document_id,
-                        'chunk_index': i,
-                        'total_chunks': len(chunks)
-                    }],
-                    ids=[chunk_id]
-                )
+            # Use chroma_service to store the document
+            success = self.chroma_service.add_document_to_project(
+                project_id=project_id,
+                document_id=document_id,
+                text_chunks=chunks,
+                metadata=metadata
+            )
             
-            logger.info(f"Stored document {document_id} in vector DB with {len(chunks)} chunks")
-            return True
+            if success:
+                logger.info(f"Stored document {document_id} in vector DB with {len(chunks)} chunks")
+            else:
+                logger.error(f"Failed to store document {document_id} in vector DB")
+            
+            return success
         except Exception as e:
             logger.error(f"Error storing document {document_id} in vector DB: {e}")
             return False
@@ -152,6 +136,9 @@ class DocumentProcessor:
                 document.status = status
                 if error_message:
                     document.processing_error = error_message
+                elif status == 'processed':
+                    # Clear error message when processing succeeds
+                    document.processing_error = None
                 db.commit()
                 logger.info(f"Updated document {document_id} status to {status}")
                 
@@ -195,13 +182,14 @@ class DocumentProcessor:
                 'file_path': file_path
             }
             
-            # Store in project-specific ChromaDB collection
-            text_chunks = self._split_text_into_chunks(text)
+            # Ensure project collection exists
+            self.chroma_service.create_project_collection(project_id, f"Project {project_id}")
             
-            success = chroma_service.add_document_to_project(
+            # Store in project-specific ChromaDB collection
+            success = self.store_in_vector_db(
                 project_id=project_id,
                 document_id=document_id,
-                text_chunks=text_chunks,
+                text=text,
                 metadata={
                     'tenant_id': tenant_id,
                     'project_id': project_id,

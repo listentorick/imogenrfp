@@ -9,15 +9,31 @@ class ChromaService:
     def __init__(self):
         chroma_host = os.getenv('CHROMA_HOST', 'chromadb')
         chroma_port = os.getenv('CHROMA_PORT', '8000')
-        self.base_url = f"http://{chroma_host}:{chroma_port}/api/v1"
+        self.tenant = "default_tenant"
+        self.database = "default_database"
+        self.base_url = f"http://{chroma_host}:{chroma_port}/api/v2/tenants/{self.tenant}/databases/{self.database}"
     
+    def get_collection_id(self, project_id: str) -> Optional[str]:
+        """Get the collection ID for a project"""
+        try:
+            response = requests.get(f"{self.base_url}/collections")
+            if response.status_code == 200:
+                collections = response.json()
+                for collection in collections:
+                    if collection.get('name') == str(project_id):
+                        return collection.get('id')
+            return None
+        except Exception as e:
+            logger.error(f"Error getting collection ID for project {project_id}: {e}")
+            return None
+
     def create_project_collection(self, project_id: str, project_name: str) -> bool:
         """Create a ChromaDB collection for a project"""
         try:
             # First check if collection already exists
-            get_response = requests.get(f"{self.base_url}/collections/{project_id}")
-            if get_response.status_code == 200:
-                logger.info(f"Collection for project {project_id} already exists")
+            collection_id = self.get_collection_id(project_id)
+            if collection_id:
+                logger.info(f"Collection for project {project_id} already exists with ID {collection_id}")
                 return True
             
             collection_data = {
@@ -31,7 +47,7 @@ class ChromaService:
             
             response = requests.post(f"{self.base_url}/collections", json=collection_data)
             
-            if response.status_code == 200:
+            if response.status_code in [200, 201]:
                 logger.info(f"Created ChromaDB collection for project {project_id}")
                 return True
             elif response.status_code == 409:
@@ -48,9 +64,14 @@ class ChromaService:
     def delete_project_collection(self, project_id: str) -> bool:
         """Delete a ChromaDB collection for a project"""
         try:
-            response = requests.delete(f"{self.base_url}/collections/{project_id}")
+            collection_id = self.get_collection_id(project_id)
+            if not collection_id:
+                logger.warning(f"Collection for project {project_id} not found")
+                return True  # Already deleted
             
-            if response.status_code == 200:
+            response = requests.delete(f"{self.base_url}/collections/{collection_id}")
+            
+            if response.status_code in [200, 204]:
                 logger.info(f"Deleted ChromaDB collection for project {project_id}")
                 return True
             else:
@@ -65,7 +86,11 @@ class ChromaService:
                                metadata: Dict[str, Any]) -> bool:
         """Add document chunks to a project's ChromaDB collection"""
         try:
-            collection_name = str(project_id)
+            # Get collection ID
+            collection_id = self.get_collection_id(project_id)
+            if not collection_id:
+                logger.error(f"Collection for project {project_id} not found")
+                return False
             
             # Prepare data for ChromaDB
             documents = []
@@ -95,14 +120,14 @@ class ChromaService:
                 'ids': ids
             }
             
-            response = requests.post(f"{self.base_url}/collections/{collection_name}/add", 
+            response = requests.post(f"{self.base_url}/collections/{collection_id}/add", 
                                    json=add_data)
             
-            if response.status_code == 200:
+            if response.status_code in [200, 201]:
                 logger.info(f"Added document {document_id} to project {project_id} collection ({len(documents)} chunks)")
                 return True
             else:
-                logger.error(f"Failed to add document {document_id} to collection: {response.text}")
+                logger.error(f"Failed to add document {document_id} to collection: {response.status_code} - {response.text}")
                 return False
                 
         except Exception as e:
