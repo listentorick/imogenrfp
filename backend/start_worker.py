@@ -126,20 +126,61 @@ For full text extraction, ensure proper document processing libraries are availa
         finally:
             db.close()
     
-    def store_in_simple_vector_db(self, document_id: str, text: str, project_id: str) -> bool:
-        """Store document in a simple way (for when ChromaDB has issues)"""
+    def store_in_vector_db(self, document_id: str, text: str, project_id: str, filename: str) -> bool:
+        """Store document in ChromaDB using the chroma_service"""
         try:
-            # For now, just log that we would store it
-            # In production, this would interact with ChromaDB
-            logger.info(f"Would store document {document_id} in project {project_id} collection")
+            from chroma_service import chroma_service
+            
+            logger.info(f"Storing document {document_id} in project {project_id} collection")
             logger.info(f"Document content length: {len(text)} characters")
             
-            # Split into chunks for logging
+            # Split into chunks
             chunk_size = 500
-            chunks = [text[i:i+chunk_size] for i in range(0, len(text), chunk_size)]
+            overlap = 100
+            chunks = []
+            start = 0
+            
+            while start < len(text):
+                end = start + chunk_size
+                
+                # Try to break at sentence or word boundary
+                if end < len(text):
+                    for i in range(end, max(start + chunk_size // 2, end - 100), -1):
+                        if text[i] in '.!?':
+                            end = i + 1
+                            break
+                    else:
+                        for i in range(end, max(start + chunk_size // 2, end - 50), -1):
+                            if text[i] == ' ':
+                                end = i
+                                break
+                
+                chunk = text[start:end].strip()
+                if chunk:
+                    chunks.append(chunk)
+                start = max(end - overlap, start + 1)
+            
             logger.info(f"Document split into {len(chunks)} chunks for vector storage")
             
-            return True
+            # Store in ChromaDB using chroma_service
+            success = chroma_service.add_document_to_project(
+                project_id=project_id,
+                document_id=document_id,
+                text_chunks=chunks,
+                metadata={
+                    'document_id': document_id,
+                    'project_id': project_id,
+                    'filename': filename
+                }
+            )
+            
+            if success:
+                logger.info(f"✅ Successfully stored document {document_id} in ChromaDB")
+                return True
+            else:
+                logger.error(f"❌ Failed to store document {document_id} in ChromaDB")
+                return False
+                
         except Exception as e:
             logger.error(f"Error storing document {document_id}: {e}")
             return False
@@ -167,8 +208,12 @@ For full text extraction, ensure proper document processing libraries are availa
             
             logger.info(f"📄 Extracted {len(text)} characters of text")
             
-            # Store in vector database (simplified for now)
-            if self.store_in_simple_vector_db(document_id, text, project_id):
+            # Get filename from file path
+            import os
+            filename = os.path.basename(file_path)
+            
+            # Store in vector database using ChromaDB
+            if self.store_in_vector_db(document_id, text, project_id, filename):
                 self.update_document_status(document_id, 'processed')
                 logger.info(f"✅ Successfully processed document {document_id}")
             else:

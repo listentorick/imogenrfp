@@ -467,6 +467,72 @@ def download_document(
         media_type=document.mime_type
     )
 
+@app.get("/projects/{project_id}/search")
+def search_project_documents(
+    project_id: str,
+    query: str,
+    limit: int = 10,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Search documents within a project using semantic search"""
+    # Verify project exists and user has access
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.tenant_id == current_user.tenant_id
+    ).first()
+    
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    if not query.strip():
+        raise HTTPException(status_code=400, detail="Query cannot be empty")
+    
+    try:
+        # Temporarily use mock service while ChromaDB compatibility is fixed
+        from mock_search_service import mock_search_service
+        search_results = mock_search_service.search_project_documents(
+            project_id=project_id,
+            query_text=query,
+            n_results=min(limit, 20),  # Cap at 20 results
+            tenant_id=str(current_user.tenant_id)
+        )
+        
+        # Fallback to ChromaDB if mock doesn't have data
+        if not search_results:
+            search_results = chroma_service.search_project_documents(
+                project_id=project_id,
+                query_text=query,
+                n_results=min(limit, 20),
+                tenant_id=str(current_user.tenant_id)
+            )
+        
+        # Format results for frontend
+        formatted_results = []
+        for result in search_results:
+            metadata = result.get('metadata', {})
+            formatted_results.append({
+                'content': result.get('content', ''),
+                'distance': result.get('distance', 0),
+                'document_id': metadata.get('document_id'),
+                'filename': metadata.get('filename', 'Unknown'),
+                'chunk_index': metadata.get('chunk_index', 0),
+                'total_chunks': metadata.get('total_chunks', 1)
+            })
+        
+        return {
+            'query': query,
+            'results': formatted_results,
+            'total_results': len(formatted_results),
+            'project_id': project_id
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Search failed: {str(e)}"
+        )
+
 @app.websocket("/ws/{tenant_id}")
 async def websocket_endpoint(websocket: WebSocket, tenant_id: str):
     await websocket_manager.connect(websocket, tenant_id)

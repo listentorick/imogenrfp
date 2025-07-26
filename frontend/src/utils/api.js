@@ -20,4 +20,16 @@ api.interceptors.response.use(
   }
 );
 
+// Search documents in a project
+export const searchProjectDocuments = async (projectId, query, limit = 10) => {
+  const token = localStorage.getItem('token');
+  const response = await api.get(`/projects/${projectId}/search`, {
+    params: { query, limit },
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return response.data;
+};
+
 export default api;

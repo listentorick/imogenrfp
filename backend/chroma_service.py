@@ -9,7 +9,7 @@ class ChromaService:
     def __init__(self):
         chroma_host = os.getenv('CHROMA_HOST', 'chromadb')
         chroma_port = os.getenv('CHROMA_PORT', '8000')
-        self.base_url = f"http://{chroma_host}:{chroma_port}/api/v2"
+        self.base_url = f"http://{chroma_host}:{chroma_port}/api/v1"
     
     def create_project_collection(self, project_id: str, project_name: str) -> bool:
         """Create a ChromaDB collection for a project"""
