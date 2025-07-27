@@ -194,34 +194,36 @@ const AskImogenTab = ({ projectId }) => {
           </div>
         </div>
         
-        {/* Admin Controls */}
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <h4 className="text-sm font-medium text-yellow-800">LangChain Migration Controls</h4>
-              <p className="text-xs text-yellow-700">Manage the transition to LangChain chunking</p>
+        {/* Admin Controls - LangChain Migration Controls (commented out) */}
+        {false && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h4 className="text-sm font-medium text-yellow-800">LangChain Migration Controls</h4>
+                <p className="text-xs text-yellow-700">Manage the transition to LangChain chunking</p>
+              </div>
             </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={handleClearChunks}
+                disabled={isClearing}
+                className="bg-red-600 text-white py-2 px-4 rounded hover:bg-red-700 disabled:bg-gray-400 text-sm"
+              >
+                {isClearing ? 'Clearing...' : 'Clear All Chunks'}
+              </button>
+              <button
+                onClick={handleReprocessDocuments}
+                disabled={isReprocessing}
+                className="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 disabled:bg-gray-400 text-sm"
+              >
+                {isReprocessing ? 'Reprocessing...' : 'Reprocess with LangChain'}
+              </button>
+            </div>
+            <p className="text-xs text-yellow-600 mt-2">
+              Use "Clear All Chunks" to remove old chunks, then "Reprocess with LangChain" to create new ones.
+            </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={handleClearChunks}
-              disabled={isClearing}
-              className="bg-red-600 text-white py-2 px-4 rounded hover:bg-red-700 disabled:bg-gray-400 text-sm"
-            >
-              {isClearing ? 'Clearing...' : 'Clear All Chunks'}
-            </button>
-            <button
-              onClick={handleReprocessDocuments}
-              disabled={isReprocessing}
-              className="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 disabled:bg-gray-400 text-sm"
-            >
-              {isReprocessing ? 'Reprocessing...' : 'Reprocess with LangChain'}
-            </button>
-          </div>
-          <p className="text-xs text-yellow-600 mt-2">
-            Use "Clear All Chunks" to remove old chunks, then "Reprocess with LangChain" to create new ones.
-          </p>
-        </div>
+        )}
         
         {/* Search Suggestions */}
         {!showSearchResults && (
