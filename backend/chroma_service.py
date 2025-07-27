@@ -36,13 +36,14 @@ class ChromaService:
                 logger.info(f"Collection for project {project_id} already exists")
                 return True
             
-            # Create new collection with metadata
+            # Create new collection with cosine distance for better text embedding similarity
             collection = self.client.create_collection(
                 name=str(project_id),
                 metadata={
                     "description": f"Document collection for project: {project_name}",
                     "project_name": project_name,
-                    "created_by": "rfp_system"
+                    "created_by": "rfp_system",
+                    "hnsw:space": "cosine"  # Use cosine distance instead of default L2
                 }
             )
             
@@ -182,7 +183,8 @@ class ChromaService:
                     
                     # Log relevance debugging info
                     if distance is not None:
-                        logger.info(f"Result {i+1}: distance={distance:.4f}, chunk_index={metadata.get('chunk_index', 'unknown')}")
+                        similarity_score = max(0, (1 - distance) * 100)
+                        logger.info(f"Result {i+1}: distance={distance:.4f}, similarity={similarity_score:.1f}%, chunk_index={metadata.get('chunk_index', 'unknown')}")
                         logger.debug(f"Content preview: {doc[:100]}...")
                     
                     formatted_results.append({
@@ -210,14 +212,15 @@ class ChromaService:
             self.client.delete_collection(name=str(project_id))
             logger.info(f"Deleted collection for project {project_id}")
             
-            # Recreate empty collection
+            # Recreate empty collection with cosine distance
             self.client.create_collection(
                 name=str(project_id),
                 metadata={
                     "description": f"Document collection for project: {project_id}",
                     "project_id": project_id,
                     "created_by": "rfp_system",
-                    "recreated_for": "langchain_chunking"
+                    "recreated_for": "langchain_chunking",
+                    "hnsw:space": "cosine"  # Use cosine distance for better text embeddings
                 }
             )
             logger.info(f"Recreated empty collection for project {project_id}")

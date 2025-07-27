@@ -309,11 +309,11 @@ const AskImogenTab = ({ projectId }) => {
                       </div>
                       <div className="flex items-center space-x-2">
                         <div className="text-xs text-gray-500">
-                          Relevance: {((1 - result.distance) * 100).toFixed(0)}%
+                          Relevance: {Math.max(0, ((1 - result.distance) * 100)).toFixed(0)}%
                         </div>
                         <div className={`w-2 h-2 rounded-full ${
-                          (1 - result.distance) > 0.7 ? 'bg-green-500' : 
-                          (1 - result.distance) > 0.5 ? 'bg-yellow-500' : 'bg-red-500'
+                          result.distance < 0.3 ? 'bg-green-500' : 
+                          result.distance < 0.7 ? 'bg-yellow-500' : 'bg-red-500'
                         }`}></div>
                       </div>
                     </div>
