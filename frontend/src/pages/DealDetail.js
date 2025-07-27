@@ -301,19 +301,6 @@ const DealDetail = () => {
         </div>
       </div>
 
-      {/* RFP Requests Section - Future enhancement */}
-      <div className="mt-6 bg-white shadow rounded-lg p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-medium text-gray-900">Associated RFP Requests</h2>
-          <button className="text-blue-600 hover:text-blue-800 text-sm">
-            Add RFP Request
-          </button>
-        </div>
-        <div className="text-center py-8 text-gray-500">
-          <DocumentTextIcon className="mx-auto h-12 w-12 text-gray-400 mb-2" />
-          <p>No RFP requests associated with this deal yet.</p>
-        </div>
-      </div>
     </div>
   );
 };

@@ -11,12 +11,10 @@ import shutil
 import asyncio
 
 from database import get_db, engine
-from models import Base, User, Tenant, Project, StandardAnswer, RFPRequest, RFPQuestion, Template, Document, Deal
+from models import Base, User, Tenant, Project, Template, Document, Deal
 from schemas import (
     User as UserSchema, UserCreate, Tenant as TenantSchema, TenantCreate,
-    Project as ProjectSchema, ProjectCreate, StandardAnswer as StandardAnswerSchema,
-    StandardAnswerCreate, RFPRequest as RFPRequestSchema, RFPRequestCreate,
-    Template as TemplateSchema, TemplateCreate, Token, Document as DocumentSchema,
+    Project as ProjectSchema, ProjectCreate, Template as TemplateSchema, TemplateCreate, Token, Document as DocumentSchema,
     DocumentCreate, Deal as DealSchema, DealCreate, DealUpdate
 )
 from queue_service import queue_service
@@ -143,95 +141,9 @@ def read_projects(
     ).offset(skip).limit(limit).all()
     return projects
 
-@app.post("/standard-answers/", response_model=StandardAnswerSchema)
-def create_standard_answer(
-    answer: StandardAnswerCreate,
-    current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    db_answer = StandardAnswer(
-        **answer.dict(),
-        tenant_id=current_user.tenant_id,
-        created_by=current_user.id
-    )
-    db.add(db_answer)
-    db.commit()
-    db.refresh(db_answer)
-    
-    # Add to RAG system
-    rag_service.add_standard_answer(
-        tenant_id=str(current_user.tenant_id),
-        answer_id=str(db_answer.id),
-        question=db_answer.question,
-        answer=db_answer.answer,
-        tags=db_answer.tags or []
-    )
-    
-    return db_answer
 
-@app.get("/standard-answers/", response_model=List[StandardAnswerSchema])
-def read_standard_answers(
-    project_id: str = None,
-    skip: int = 0,
-    limit: int = 100,
-    current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    query = db.query(StandardAnswer).filter(
-        StandardAnswer.tenant_id == current_user.tenant_id
-    )
-    if project_id:
-        query = query.filter(StandardAnswer.project_id == project_id)
-    
-    answers = query.offset(skip).limit(limit).all()
-    return answers
 
-@app.post("/rfp-requests/", response_model=RFPRequestSchema)
-def create_rfp_request(
-    rfp: RFPRequestCreate,
-    current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    db_rfp = RFPRequest(
-        title=rfp.title,
-        client_name=rfp.client_name,
-        due_date=rfp.due_date,
-        project_id=rfp.project_id,
-        tenant_id=current_user.tenant_id,
-        created_by=current_user.id
-    )
-    db.add(db_rfp)
-    db.commit()
-    db.refresh(db_rfp)
-    
-    for idx, question in enumerate(rfp.questions):
-        db_question = RFPQuestion(
-            rfp_request_id=db_rfp.id,
-            question_text=question.question_text,
-            question_order=question.question_order or idx + 1
-        )
-        db.add(db_question)
-    
-    db.commit()
-    db.refresh(db_rfp)
-    return db_rfp
 
-@app.get("/rfp-requests/", response_model=List[RFPRequestSchema])
-def read_rfp_requests(
-    project_id: str = None,
-    skip: int = 0,
-    limit: int = 100,
-    current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    query = db.query(RFPRequest).filter(
-        RFPRequest.tenant_id == current_user.tenant_id
-    )
-    if project_id:
-        query = query.filter(RFPRequest.project_id == project_id)
-    
-    rfps = query.offset(skip).limit(limit).all()
-    return rfps
 
 @app.post("/templates/", response_model=TemplateSchema)
 def create_template(
@@ -261,105 +173,8 @@ def read_templates(
     ).offset(skip).limit(limit).all()
     return templates
 
-@app.post("/rfp-requests/{rfp_id}/generate-answers")
-def generate_rfp_answers(
-    rfp_id: str,
-    current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    rfp = db.query(RFPRequest).filter(
-        RFPRequest.id == rfp_id,
-        RFPRequest.tenant_id == current_user.tenant_id
-    ).first()
-    
-    if not rfp:
-        raise HTTPException(status_code=404, detail="RFP not found")
-    
-    questions = db.query(RFPQuestion).filter(
-        RFPQuestion.rfp_request_id == rfp_id
-    ).all()
-    
-    generated_count = 0
-    for question in questions:
-        if not question.generated_answer:
-            generated_answer = rag_service.generate_rfp_answer(
-                tenant_id=str(current_user.tenant_id),
-                rfp_question=question.question_text
-            )
-            question.generated_answer = generated_answer
-            generated_count += 1
-    
-    db.commit()
-    
-    return {"message": f"Generated {generated_count} answers", "rfp_id": rfp_id}
 
-@app.post("/rfp-requests/{rfp_id}/render")
-def render_rfp_response(
-    rfp_id: str,
-    template_id: str = None,
-    branding_data: dict = None,
-    current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    rfp = db.query(RFPRequest).filter(
-        RFPRequest.id == rfp_id,
-        RFPRequest.tenant_id == current_user.tenant_id
-    ).first()
-    
-    if not rfp:
-        raise HTTPException(status_code=404, detail="RFP not found")
-    
-    if template_id:
-        template = db.query(Template).filter(
-            Template.id == template_id,
-            Template.tenant_id == current_user.tenant_id
-        ).first()
-    else:
-        template = db.query(Template).filter(
-            Template.tenant_id == current_user.tenant_id,
-            Template.is_default == True
-        ).first()
-    
-    if not template:
-        template_content = template_service.get_default_html_template()
-    else:
-        template_content = template.template_content
-    
-    rfp_data = {
-        "id": str(rfp.id),
-        "title": rfp.title,
-        "client_name": rfp.client_name,
-        "due_date": rfp.due_date,
-        "status": rfp.status,
-        "questions": [
-            {
-                "id": str(q.id),
-                "question_text": q.question_text,
-                "generated_answer": q.generated_answer,
-                "reviewed": q.reviewed
-            }
-            for q in rfp.questions
-        ]
-    }
-    
-    rendered_content = template_service.render_rfp_response(
-        template_content=template_content,
-        rfp_data=rfp_data,
-        branding_data=branding_data or {}
-    )
-    
-    return {
-        "rendered_content": rendered_content,
-        "template_type": template.template_type if template else "html"
-    }
 
-@app.post("/standard-answers/bulk-index")
-def bulk_index_answers(
-    current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    count = rag_service.bulk_index_standard_answers(db, str(current_user.tenant_id))
-    return {"message": f"Indexed {count} standard answers"}
 
 @app.post("/documents/", response_model=DocumentSchema)
 async def upload_document(

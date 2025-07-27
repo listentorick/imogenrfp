@@ -4,8 +4,6 @@ import { useAuth } from '../contexts/AuthContext';
 import {
   HomeIcon,
   FolderIcon,
-  DocumentTextIcon,
-  ClipboardDocumentListIcon,
   DocumentDuplicateIcon,
   ArrowRightOnRectangleIcon
 } from '@heroicons/react/24/outline';
@@ -18,8 +16,6 @@ const Layout = ({ children }) => {
   const navigation = [
     { name: 'Dashboard', href: '/', icon: HomeIcon },
     { name: 'Projects', href: '/projects', icon: FolderIcon },
-    { name: 'Standard Answers', href: '/standard-answers', icon: DocumentTextIcon },
-    { name: 'RFP Requests', href: '/rfp-requests', icon: ClipboardDocumentListIcon },
     { name: 'Templates', href: '/templates', icon: DocumentDuplicateIcon },
   ];
 

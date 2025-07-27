@@ -8,7 +8,11 @@
       "Bash(pip install:*)",
       "Bash(pip3 install:*)",
       "Bash(python3 -m pip install:*)",
-      "Bash(docker exec:*)"
+      "Bash(docker exec:*)",
+      "Bash(rm:*)",
+      "Bash(npm start)",
+      "Bash(docker restart:*)",
+      "Bash(docker logs:*)"
     ],
     "deny": []
   }

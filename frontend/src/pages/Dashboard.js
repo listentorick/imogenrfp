@@ -3,15 +3,11 @@ import { useQuery } from 'react-query';
 import { api } from '../utils/api';
 import {
   FolderIcon,
-  DocumentTextIcon,
-  ClipboardDocumentListIcon,
   RectangleStackIcon
 } from '@heroicons/react/24/outline';
 
 const Dashboard = () => {
   const { data: projects } = useQuery('projects', () => api.get('/projects/').then(res => res.data));
-  const { data: standardAnswers } = useQuery('standard-answers', () => api.get('/standard-answers/').then(res => res.data));
-  const { data: rfpRequests } = useQuery('rfp-requests', () => api.get('/rfp-requests/').then(res => res.data));
   const { data: templates } = useQuery('templates', () => api.get('/templates/').then(res => res.data));
 
   const stats = [
@@ -20,18 +16,6 @@ const Dashboard = () => {
       count: projects?.length || 0,
       icon: FolderIcon,
       color: 'bg-blue-500'
-    },
-    {
-      name: 'Standard Answers',
-      count: standardAnswers?.length || 0,
-      icon: DocumentTextIcon,
-      color: 'bg-green-500'
-    },
-    {
-      name: 'RFP Requests',
-      count: rfpRequests?.length || 0,
-      icon: ClipboardDocumentListIcon,
-      color: 'bg-yellow-500'
     },
     {
       name: 'Templates',
@@ -76,7 +60,7 @@ const Dashboard = () => {
         ))}
       </div>
 
-      <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="mt-8 grid grid-cols-1 gap-6">
         <div className="bg-white shadow rounded-lg p-6">
           <h3 className="text-lg font-medium text-gray-900 mb-4">Recent Projects</h3>
           {projects && projects.length > 0 ? (
@@ -98,37 +82,6 @@ const Dashboard = () => {
           )}
         </div>
 
-        <div className="bg-white shadow rounded-lg p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Recent RFP Requests</h3>
-          {rfpRequests && rfpRequests.length > 0 ? (
-            <ul className="space-y-3">
-              {rfpRequests.slice(0, 5).map((rfp) => (
-                <li key={rfp.id} className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-gray-900">{rfp.title}</p>
-                    <div className="flex items-center space-x-2">
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        rfp.status === 'completed' ? 'bg-green-100 text-green-800' :
-                        rfp.status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {rfp.status}
-                      </span>
-                      {rfp.client_name && (
-                        <span className="text-sm text-gray-500">for {rfp.client_name}</span>
-                      )}
-                    </div>
-                  </div>
-                  <span className="text-xs text-gray-400">
-                    {new Date(rfp.created_at).toLocaleDateString()}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-gray-500">No RFP requests yet. Create your first RFP to get started.</p>
-          )}
-        </div>
       </div>
     </div>
   );

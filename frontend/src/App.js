@@ -9,8 +9,6 @@ import Dashboard from './pages/Dashboard';
 import Projects from './pages/Projects';
 import ProjectDetail from './pages/ProjectDetail';
 import DealDetail from './pages/DealDetail';
-import StandardAnswers from './pages/StandardAnswers';
-import RFPRequests from './pages/RFPRequests';
 import Templates from './pages/Templates';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -57,20 +55,6 @@ function App() {
                 <ProtectedRoute>
                   <Layout>
                     <DealDetail />
-                  </Layout>
-                </ProtectedRoute>
-              } />
-              <Route path="/standard-answers" element={
-                <ProtectedRoute>
-                  <Layout>
-                    <StandardAnswers />
-                  </Layout>
-                </ProtectedRoute>
-              } />
-              <Route path="/rfp-requests" element={
-                <ProtectedRoute>
-                  <Layout>
-                    <RFPRequests />
                   </Layout>
                 </ProtectedRoute>
               } />

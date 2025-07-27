@@ -54,63 +54,7 @@ class Project(ProjectBase):
     class Config:
         from_attributes = True
 
-class StandardAnswerBase(BaseModel):
-    question: str
-    answer: str
-    tags: Optional[List[str]] = None
-    project_id: Optional[UUID] = None
 
-class StandardAnswerCreate(StandardAnswerBase):
-    pass
-
-class StandardAnswer(StandardAnswerBase):
-    id: UUID
-    tenant_id: UUID
-    created_by: UUID
-    created_at: datetime
-    updated_at: datetime
-
-    class Config:
-        from_attributes = True
-
-class RFPQuestionBase(BaseModel):
-    question_text: str
-    question_order: Optional[int] = None
-
-class RFPQuestionCreate(RFPQuestionBase):
-    pass
-
-class RFPQuestion(RFPQuestionBase):
-    id: UUID
-    rfp_request_id: UUID
-    generated_answer: Optional[str] = None
-    reviewed: bool = False
-    created_at: datetime
-    updated_at: datetime
-
-    class Config:
-        from_attributes = True
-
-class RFPRequestBase(BaseModel):
-    title: str
-    client_name: Optional[str] = None
-    due_date: Optional[date] = None
-    project_id: UUID
-
-class RFPRequestCreate(RFPRequestBase):
-    questions: List[RFPQuestionCreate] = []
-
-class RFPRequest(RFPRequestBase):
-    id: UUID
-    tenant_id: UUID
-    status: str
-    created_by: UUID
-    created_at: datetime
-    updated_at: datetime
-    questions: List[RFPQuestion] = []
-
-    class Config:
-        from_attributes = True
 
 class TemplateBase(BaseModel):
     name: str
