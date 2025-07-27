@@ -12,7 +12,8 @@
       "Bash(rm:*)",
       "Bash(npm start)",
       "Bash(docker restart:*)",
-      "Bash(docker logs:*)"
+      "Bash(docker logs:*)",
+      "Bash(mkdir:*)"
     ],
     "deny": []
   }
