@@ -59,6 +59,24 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
         raise credentials_exception
     return token_data
 
+def verify_token_string(token: str) -> dict:
+    """Verify a JWT token string and return payload. For WebSocket use."""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email = payload.get("sub")
+        tenant_id = payload.get("tenant_id")
+        
+        if not email or not tenant_id:
+            raise JWTError("Missing required claims")
+            
+        return {
+            "sub": email,
+            "tenant_id": tenant_id,
+            "exp": payload.get("exp")
+        }
+    except JWTError as e:
+        raise ValueError(f"Invalid token: {e}")
+
 def get_current_user(db: Session = Depends(get_db), token_data: TokenData = Depends(verify_token)):
     user = db.query(User).filter(User.email == token_data.email).first()
     if user is None:

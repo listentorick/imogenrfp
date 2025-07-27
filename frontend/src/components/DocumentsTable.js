@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { 
   PlusIcon, 
   MagnifyingGlassIcon, 
@@ -9,19 +10,75 @@ import {
   DocumentIcon
 } from '@heroicons/react/24/outline';
 import { api } from '../utils/api';
+import { useAuth } from '../contexts/AuthContext';
 
 const DocumentsTable = ({ projectId, onUploadClick }) => {
-  const [documents, setDocuments] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [sortField, setSortField] = useState('created_at');
   const [sortDirection, setSortDirection] = useState('desc');
+  const [socket, setSocket] = useState(null);
   
   const itemsPerPage = 10;
+
+  // Use React Query to fetch documents
+  const { data: documents = [], isLoading: loading, error } = useQuery(
+    ['project-documents', projectId],
+    () => api.get(`/projects/${projectId}/documents`).then(res => res.data),
+    {
+      enabled: !!projectId,
+    }
+  );
+
+  // WebSocket connection for real-time document status updates
+  useEffect(() => {
+    if (user?.tenant_id) {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.error('No authentication token found for WebSocket connection');
+        return;
+      }
+      
+      const ws = new WebSocket(`ws://localhost:8000/ws?token=${encodeURIComponent(token)}`);
+      
+      ws.onopen = () => {
+        console.log('DocumentsTable WebSocket connected with authentication');
+        setSocket(ws);
+      };
+      
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'document_status_update') {
+            console.log('Document status update received:', data);
+            // Refresh document list when status updates
+            queryClient.invalidateQueries(['project-documents', projectId]);
+          }
+        } catch (err) {
+          console.error('Error parsing WebSocket message:', err);
+        }
+      };
+      
+      ws.onclose = () => {
+        console.log('DocumentsTable WebSocket disconnected');
+        setSocket(null);
+      };
+
+      ws.onerror = (error) => {
+        console.error('DocumentsTable WebSocket error:', error);
+      };
+      
+      return () => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.close();
+        }
+      };
+    }
+  }, [user?.tenant_id, projectId, queryClient]);
 
   const statusOptions = [
     { value: 'all', label: 'All Statuses' },
@@ -39,43 +96,23 @@ const DocumentsTable = ({ projectId, onUploadClick }) => {
     { value: 'other', label: 'Other' }
   ];
 
-  useEffect(() => {
-    loadDocuments();
-  }, [projectId]);
-
-  const loadDocuments = async () => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem('token');
-      const response = await api.get(`/projects/${projectId}/documents`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      setDocuments(response.data);
-    } catch (err) {
-      setError('Failed to load documents');
-      console.error('Error loading documents:', err);
-    } finally {
-      setLoading(false);
+  // Convert delete to use React Query mutation
+  const deleteDocumentMutation = useMutation(
+    (documentId) => api.delete(`/documents/${documentId}`),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries(['project-documents', projectId]);
+      },
+      onError: (error) => {
+        alert('Failed to delete document: ' + (error.response?.data?.detail || error.message));
+      }
     }
-  };
+  );
 
   const handleDeleteDocument = async (documentId, e) => {
     e.stopPropagation();
     if (window.confirm('Are you sure you want to delete this document?')) {
-      try {
-        const token = localStorage.getItem('token');
-        await api.delete(`/documents/${documentId}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        setDocuments(documents.filter(doc => doc.id !== documentId));
-      } catch (err) {
-        alert('Failed to delete document');
-        console.error('Error deleting document:', err);
-      }
+      deleteDocumentMutation.mutate(documentId);
     }
   };
 
@@ -247,7 +284,9 @@ const DocumentsTable = ({ projectId, onUploadClick }) => {
   if (error) {
     return (
       <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <div className="text-center py-8 text-red-600">{error}</div>
+        <div className="text-center py-8 text-red-600">
+          Failed to load documents: {error.response?.data?.detail || error.message || 'Unknown error'}
+        </div>
       </div>
     );
   }

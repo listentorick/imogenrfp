@@ -20,10 +20,16 @@ const DocumentList = ({ projectId, onUploadClick }) => {
   // WebSocket connection for real-time updates
   useEffect(() => {
     if (user?.tenant_id) {
-      const ws = new WebSocket(`ws://localhost:8000/ws/${user.tenant_id}`);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.error('No authentication token found for WebSocket connection');
+        return;
+      }
+      
+      const ws = new WebSocket(`ws://localhost:8000/ws?token=${encodeURIComponent(token)}`);
       
       ws.onopen = () => {
-        console.log('WebSocket connected');
+        console.log('DocumentList WebSocket connected with authentication');
         setSocket(ws);
       };
       

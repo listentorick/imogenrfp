@@ -719,21 +719,60 @@ def delete_deal(
     db.commit()
     return {"message": "Deal deleted successfully"}
 
-@app.websocket("/ws/{tenant_id}")
-async def websocket_endpoint(websocket: WebSocket, tenant_id: str):
-    await websocket_manager.connect(websocket, tenant_id)
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket, token: str = None):
+    """Secure WebSocket endpoint with token authentication"""
     try:
-        while True:
-            # Keep connection alive
-            await websocket.receive_text()
-    except WebSocketDisconnect:
-        websocket_manager.disconnect(websocket, tenant_id)
+        # Extract token from query parameter
+        if not token:
+            # Try to get token from query parameters
+            query_params = dict(websocket.query_params)
+            token = query_params.get('token')
+        
+        if not token:
+            await websocket.close(code=4001, reason="Missing authentication token")
+            return
+        
+        # Validate token and get user
+        try:
+            from auth import verify_token_string
+            payload = verify_token_string(token)
+            user_email = payload.get("sub")
+            user_tenant_id = payload.get("tenant_id")
+            
+            if not user_email or not user_tenant_id:
+                await websocket.close(code=4001, reason="Invalid token")
+                return
+                
+        except Exception as e:
+            await websocket.close(code=4001, reason="Invalid or expired token")
+            return
+        
+        # Connect with authenticated tenant ID
+        connection_success = await websocket_manager.connect(websocket, user_tenant_id)
+        if not connection_success:
+            return  # Connection was rejected due to limits
+            
+        print(f"Authenticated WebSocket connection for user {user_email}, tenant {user_tenant_id}")
+        
+        try:
+            while True:
+                # Keep connection alive
+                await websocket.receive_text()
+        except WebSocketDisconnect:
+            websocket_manager.disconnect(websocket, user_tenant_id)
+            
+    except Exception as e:
+        print(f"WebSocket connection error: {e}")
+        try:
+            await websocket.close(code=4000, reason="Connection error")
+        except:
+            pass
 
-# Removed problematic startup event for now
-# @app.on_event("startup")
-# async def startup_event():
-#     # Start WebSocket listener in background
-#     asyncio.create_task(websocket_manager.listen_for_updates())
+@app.on_event("startup")
+async def startup_event():
+    # Start WebSocket listener in background
+    asyncio.create_task(websocket_manager.listen_for_updates())
 
 if __name__ == "__main__":
     import uvicorn
