@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { api } from '../utils/api';
 import { ArrowLeftIcon, PencilIcon } from '@heroicons/react/24/outline';
@@ -10,14 +10,36 @@ import DealForm from '../components/DealForm';
 import AskImogenTab from '../components/AskImogenTab';
 
 const ProjectDetail = () => {
-  const { projectId } = useParams();
+  const { projectId, tab } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showCreateDeal, setShowCreateDeal] = useState(false);
   const [activeTab, setActiveTab] = useState('deals');
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({});
+
+  // Extract tab from URL path params
+  useEffect(() => {
+    const validTabs = ['deals', 'documents', 'ask-imogen'];
+    
+    if (tab && validTabs.includes(tab)) {
+      setActiveTab(tab);
+    } else if (tab && !validTabs.includes(tab)) {
+      // Redirect to deals tab if invalid tab is provided
+      navigate(`/projects/${projectId}/deals`, { replace: true });
+    } else if (!tab) {
+      // Default to deals tab if no tab is specified
+      setActiveTab('deals');
+    }
+  }, [tab, projectId, navigate]);
+
+  // Function to handle tab changes and update URL
+  const handleTabChange = (newTab) => {
+    setActiveTab(newTab);
+    navigate(`/projects/${projectId}/${newTab}`, { replace: true });
+  };
 
   console.log('ProjectDetail loaded with projectId:', projectId);
 
@@ -190,7 +212,7 @@ const ProjectDetail = () => {
         <div className="border-b border-gray-200">
           <nav className="-mb-px flex space-x-8">
             <button
-              onClick={() => setActiveTab('deals')}
+              onClick={() => handleTabChange('deals')}
               className={`py-2 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'deals'
                   ? 'border-blue-500 text-blue-600'
@@ -200,7 +222,7 @@ const ProjectDetail = () => {
               Deals
             </button>
             <button
-              onClick={() => setActiveTab('documents')}
+              onClick={() => handleTabChange('documents')}
               className={`py-2 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'documents'
                   ? 'border-blue-500 text-blue-600'
@@ -210,7 +232,7 @@ const ProjectDetail = () => {
               Documents
             </button>
             <button
-              onClick={() => setActiveTab('ask-imogen')}
+              onClick={() => handleTabChange('ask-imogen')}
               className={`py-2 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'ask-imogen'
                   ? 'border-blue-500 text-blue-600'

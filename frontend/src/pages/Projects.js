@@ -314,7 +314,7 @@ const Projects = () => {
                     <tr 
                       key={project.id} 
                       className="hover:bg-gray-50 cursor-pointer"
-                      onClick={() => navigate(`/projects/${project.id}`)}
+                      onClick={() => navigate(`/projects/${project.id}/deals`)}
                     >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
@@ -338,7 +338,7 @@ const Projects = () => {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate(`/projects/${project.id}`);
+                            navigate(`/projects/${project.id}/deals`);
                           }}
                           className="text-blue-600 hover:text-blue-900 mr-3"
                           title="Edit"

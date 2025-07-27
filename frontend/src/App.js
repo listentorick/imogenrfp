@@ -46,6 +46,13 @@ function App() {
                   </Layout>
                 </ProtectedRoute>
               } />
+              <Route path="/projects/:projectId/:tab" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <ProjectDetail />
+                  </Layout>
+                </ProtectedRoute>
+              } />
               <Route path="/deals/:dealId" element={
                 <ProtectedRoute>
                   <Layout>
