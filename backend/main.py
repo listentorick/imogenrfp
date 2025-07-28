@@ -4,11 +4,12 @@ from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from datetime import timedelta
-from typing import List
+from typing import List, Optional
 import os
 import uuid as uuid_lib
 import shutil
 import asyncio
+import json
 
 from database import get_db, engine
 from models import Base, User, Tenant, Project, Template, Document, Deal
@@ -180,6 +181,7 @@ def read_templates(
 async def upload_document(
     file: UploadFile = File(...),
     project_id: str = Form(...),
+    document_type: str = Form("other"),
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
@@ -209,11 +211,13 @@ async def upload_document(
     db_document = Document(
         tenant_id=current_user.tenant_id,
         project_id=project_id,
+        deal_id=None,  # Project documents don't have deal_id
         filename=unique_filename,
         original_filename=file.filename,
         file_path=file_path,
         file_size=file.size or 0,
         mime_type=file.content_type or "application/octet-stream",
+        document_type=document_type,
         created_by=current_user.id
     )
     
@@ -533,6 +537,153 @@ def delete_deal(
     db.delete(deal)
     db.commit()
     return {"message": "Deal deleted successfully"}
+
+# Deal Document endpoints
+@app.post("/deals/{deal_id}/documents/", response_model=DocumentSchema)
+def upload_deal_document(
+    deal_id: str,
+    file: UploadFile = File(...),
+    document_type: str = Form("rfp"),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Upload a document to a deal"""
+    # Check if deal exists and user has access
+    deal = db.query(Deal).filter(
+        Deal.id == deal_id,
+        Deal.tenant_id == current_user.tenant_id
+    ).first()
+    
+    if not deal:
+        raise HTTPException(status_code=404, detail="Deal not found")
+    
+    # Create uploads directory if it doesn't exist
+    upload_dir = "uploads"
+    os.makedirs(upload_dir, exist_ok=True)
+    
+    # Generate a unique filename
+    file_extension = os.path.splitext(file.filename)[1]
+    unique_filename = f"{uuid_lib.uuid4()}{file_extension}"
+    file_path = os.path.join(upload_dir, unique_filename)
+    
+    # Save the file
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    
+    # Get file size
+    file_size = os.path.getsize(file_path)
+    
+    # Create document record
+    document = Document(
+        tenant_id=current_user.tenant_id,
+        project_id=None,  # Deal documents don't have project_id
+        deal_id=deal_id,
+        filename=unique_filename,
+        original_filename=file.filename,
+        file_path=file_path,
+        file_size=file_size,
+        mime_type=file.content_type,
+        document_type=document_type,
+        created_by=current_user.id
+    )
+    
+    db.add(document)
+    db.commit()
+    db.refresh(document)
+    
+    # Note: WebSocket notifications removed due to async context issues in FastAPI sync endpoints
+    
+    return document
+
+@app.get("/deals/{deal_id}/documents", response_model=List[DocumentSchema])
+def get_deal_documents(
+    deal_id: str,
+    document_type: Optional[str] = None,
+    status: Optional[str] = None,
+    search: Optional[str] = None,
+    sort_by: Optional[str] = "created_at",
+    sort_order: Optional[str] = "desc",
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get documents for a specific deal with filtering and sorting"""
+    # Check if deal exists and user has access
+    deal = db.query(Deal).filter(
+        Deal.id == deal_id,
+        Deal.tenant_id == current_user.tenant_id
+    ).first()
+    
+    if not deal:
+        raise HTTPException(status_code=404, detail="Deal not found")
+    
+    # Build query
+    query = db.query(Document).filter(
+        Document.deal_id == deal_id,
+        Document.tenant_id == current_user.tenant_id
+    )
+    
+    # Apply filters
+    if document_type:
+        query = query.filter(Document.document_type == document_type)
+    
+    if status:
+        query = query.filter(Document.status == status)
+    
+    if search:
+        query = query.filter(
+            Document.original_filename.ilike(f"%{search}%")
+        )
+    
+    # Apply sorting
+    if sort_by and hasattr(Document, sort_by):
+        sort_column = getattr(Document, sort_by)
+        if sort_order == "desc":
+            query = query.order_by(sort_column.desc())
+        else:
+            query = query.order_by(sort_column)
+    
+    documents = query.all()
+    return documents
+
+@app.delete("/deals/{deal_id}/documents/{document_id}")
+def delete_deal_document(
+    deal_id: str,
+    document_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Delete a document from a deal"""
+    # Check if deal exists and user has access
+    deal = db.query(Deal).filter(
+        Deal.id == deal_id,
+        Deal.tenant_id == current_user.tenant_id
+    ).first()
+    
+    if not deal:
+        raise HTTPException(status_code=404, detail="Deal not found")
+    
+    # Find the document
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.deal_id == deal_id,
+        Document.tenant_id == current_user.tenant_id
+    ).first()
+    
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    # Delete the file from filesystem
+    try:
+        if os.path.exists(document.file_path):
+            os.remove(document.file_path)
+    except Exception as e:
+        print(f"Error deleting file: {e}")
+    
+    # Delete the database record
+    db.delete(document)
+    db.commit()
+    
+    return {"message": "Document deleted successfully"}
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket, token: str = None):

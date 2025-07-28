@@ -55,6 +55,7 @@ const DocumentUpload = ({ projectId, onClose }) => {
     const formData = new FormData();
     formData.append('file', selectedFile);
     formData.append('project_id', projectId);
+    formData.append('document_type', 'other');
     
     uploadMutation.mutate(formData);
   };

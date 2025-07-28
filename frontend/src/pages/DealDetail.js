@@ -6,9 +6,12 @@ import {
   CurrencyDollarIcon, 
   BuildingOfficeIcon,
   CalendarIcon,
-  DocumentTextIcon
+  DocumentTextIcon,
+  PlusIcon
 } from '@heroicons/react/24/outline';
 import { getDeal, updateDeal, deleteDeal } from '../utils/api';
+import DealDocumentUpload from '../components/DealDocumentUpload';
+import DealDocumentsList from '../components/DealDocumentsList';
 
 const DealDetail = () => {
   const { dealId } = useParams();
@@ -18,6 +21,8 @@ const DealDetail = () => {
   const [error, setError] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({});
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [documentRefresh, setDocumentRefresh] = useState(0);
 
   const statusOptions = [
     { value: 'prospect', label: 'Prospect', color: 'bg-gray-100 text-gray-800' },
@@ -82,6 +87,15 @@ const DealDetail = () => {
         console.error('Error deleting deal:', err);
       }
     }
+  };
+
+  const handleUploadSuccess = (document) => {
+    setShowUploadModal(false);
+    setDocumentRefresh(prev => prev + 1);
+  };
+
+  const handleCancelUpload = () => {
+    setShowUploadModal(false);
   };
 
   const getStatusBadge = (status) => {
@@ -300,6 +314,48 @@ const DealDetail = () => {
           )}
         </div>
       </div>
+
+      {/* Documents Section */}
+      <div className="mt-6">
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
+          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-medium text-gray-900 dark:text-white flex items-center">
+                  <DocumentTextIcon className="h-5 w-5 mr-2" />
+                  Documents
+                </h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  RFP, RFI, proposals, contracts, and other deal-related documents
+                </p>
+              </div>
+              <button
+                onClick={() => setShowUploadModal(true)}
+                className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              >
+                <PlusIcon className="h-4 w-4 mr-2" />
+                Upload Document
+              </button>
+            </div>
+          </div>
+
+          <div className="p-6">
+            <DealDocumentsList
+              dealId={dealId}
+              refreshTrigger={documentRefresh}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Upload Modal */}
+      {showUploadModal && (
+        <DealDocumentUpload
+          dealId={dealId}
+          onUploadSuccess={handleUploadSuccess}
+          onCancel={handleCancelUpload}
+        />
+      )}
 
     </div>
   );

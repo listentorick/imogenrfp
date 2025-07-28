@@ -88,7 +88,9 @@ class DocumentBase(BaseModel):
     original_filename: str
     file_size: int
     mime_type: str
-    project_id: UUID
+    document_type: str = 'rfp'
+    project_id: Optional[UUID] = None
+    deal_id: Optional[UUID] = None
 
 class DocumentCreate(DocumentBase):
     file_path: str

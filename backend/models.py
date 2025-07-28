@@ -78,12 +78,14 @@ class Document(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
-    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=False)
+    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=True)
+    deal_id = Column(UUID(as_uuid=True), ForeignKey("deals.id"), nullable=True)
     filename = Column(String(255), nullable=False)
     original_filename = Column(String(255), nullable=False)
     file_path = Column(String(500), nullable=False)
     file_size = Column(Integer, nullable=False)
     mime_type = Column(String(100), nullable=False)
+    document_type = Column(String(50), default='other')  # rfp, rfi, proposal, contract, other
     status = Column(String(50), default='uploaded', nullable=False)  # uploaded, processing, processed, error
     processing_error = Column(Text)
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
@@ -92,6 +94,7 @@ class Document(Base):
 
     tenant = relationship("Tenant")
     project = relationship("Project", back_populates="documents")
+    deal = relationship("Deal", back_populates="documents")
     created_by_user = relationship("User")
 
 class Deal(Base):
@@ -114,3 +117,4 @@ class Deal(Base):
     tenant = relationship("Tenant", back_populates="deals")
     project = relationship("Project", back_populates="deals")
     created_by_user = relationship("User", back_populates="deals")
+    documents = relationship("Document", back_populates="deal")
