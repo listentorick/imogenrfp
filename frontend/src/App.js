@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { AuthProvider } from './contexts/AuthContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -10,6 +11,7 @@ import Projects from './pages/Projects';
 import ProjectDetail from './pages/ProjectDetail';
 import DealDetail from './pages/DealDetail';
 import Templates from './pages/Templates';
+import UserSettings from './pages/UserSettings';
 import ProtectedRoute from './components/ProtectedRoute';
 
 const queryClient = new QueryClient();
@@ -17,8 +19,9 @@ const queryClient = new QueryClient();
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <Router>
+      <ThemeProvider>
+        <AuthProvider>
+          <Router>
           <div className="App">
             <Routes>
               <Route path="/login" element={<Login />} />
@@ -65,10 +68,18 @@ function App() {
                   </Layout>
                 </ProtectedRoute>
               } />
+              <Route path="/settings" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <UserSettings />
+                  </Layout>
+                </ProtectedRoute>
+              } />
             </Routes>
           </div>
-        </Router>
-      </AuthProvider>
+          </Router>
+        </AuthProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }

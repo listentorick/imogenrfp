@@ -13,7 +13,8 @@
       "Bash(npm start)",
       "Bash(docker restart:*)",
       "Bash(docker logs:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(docker-compose up:*)"
     ],
     "deny": []
   }
