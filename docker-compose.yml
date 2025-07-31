@@ -92,6 +92,29 @@ services:
       - /app/__pycache__
     command: python document_processor.py
 
+  question-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgresql://rfp_user:rfp_password@postgres:5432/rfp_saas
+      - REDIS_URL=redis://redis:6379
+      - CHROMA_HOST=chromadb
+      - CHROMA_PORT=8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      chromadb:
+        condition: service_started
+      ollama:
+        condition: service_started
+    volumes:
+      - ./backend:/app
+      - /app/__pycache__
+    command: python question_worker.py
+
   ollama:
     image: ollama/ollama:latest
     ports:

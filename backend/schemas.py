@@ -146,6 +146,8 @@ class QuestionBase(BaseModel):
     answer_text: Optional[str] = None
     extraction_confidence: Optional[Decimal] = None
     question_order: Optional[int] = None
+    processing_status: str = 'pending'
+    processing_error: Optional[str] = None
 
 class QuestionCreate(QuestionBase):
     deal_id: UUID

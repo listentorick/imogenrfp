@@ -131,6 +131,8 @@ class Question(Base):
     answer_text = Column(Text)  # Initially null, filled when answered
     extraction_confidence = Column(Numeric(precision=3, scale=2))  # 0.00 to 1.00
     question_order = Column(Integer)  # Order of question in document
+    processing_status = Column(String(50), default='pending', nullable=False)  # pending, processing, processed, error
+    processing_error = Column(Text)  # Error message if processing fails
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 

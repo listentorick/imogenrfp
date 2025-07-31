@@ -4,7 +4,8 @@ import logging
 from typing import List, Dict, Optional
 from sqlalchemy.orm import Session  
 from database import get_db
-from models import Question, Document
+from models import Question, Document, Deal
+from queue_service import queue_service
 
 logger = logging.getLogger(__name__)
 
@@ -82,10 +83,11 @@ Response format:
             logger.error(f"Unexpected error in question extraction: {e}")
             return []
     
-    def save_questions_to_database(self, questions: List[Dict], document_id: str, deal_id: str, tenant_id: str) -> bool:
-        """Save extracted questions to the database"""
+    def save_questions_to_database(self, questions: List[Dict], document_id: str, deal_id: str, tenant_id: str, project_id: str) -> bool:
+        """Save extracted questions to the database and enqueue them for processing"""
         db = next(get_db())
         try:
+            saved_questions = []
             for question_data in questions:
                 question = Question(
                     tenant_id=tenant_id,
@@ -93,12 +95,29 @@ Response format:
                     document_id=document_id,
                     question_text=question_data.get('question', ''),
                     extraction_confidence=question_data.get('confidence', 0.0),
-                    question_order=question_data.get('order', 0)
+                    question_order=question_data.get('order', 0),
+                    processing_status='pending'
                 )
                 db.add(question)
+                saved_questions.append(question)
             
             db.commit()
-            logger.info(f"Saved {len(questions)} questions to database for document {document_id}")
+            
+            # Enqueue each question for individual processing
+            for question in saved_questions:
+                db.refresh(question)  # Get the ID after commit
+                try:
+                    queue_service.enqueue_question_processing(
+                        question_id=str(question.id),
+                        tenant_id=tenant_id,
+                        project_id=project_id,
+                        deal_id=deal_id
+                    )
+                    logger.info(f"Enqueued question {question.id} for processing")
+                except Exception as e:
+                    logger.error(f"Failed to enqueue question {question.id}: {e}")
+            
+            logger.info(f"Saved and enqueued {len(questions)} questions for document {document_id}")
             return True
             
         except Exception as e:
@@ -118,6 +137,12 @@ Response format:
                 logger.error(f"Document {document_id} not found or not associated with a deal")
                 return False
             
+            # Get deal details to get project_id
+            deal = db.query(Deal).filter(Deal.id == document.deal_id).first()
+            if not deal:
+                logger.error(f"Deal {document.deal_id} not found")
+                return False
+            
             # Extract questions using Ollama
             extracted_questions = self.extract_questions_from_text(text)
             
@@ -125,12 +150,13 @@ Response format:
                 logger.info(f"No questions found in document {document_id}")
                 return True  # Not an error, just no questions
             
-            # Save questions to database
+            # Save questions to database and enqueue for processing
             success = self.save_questions_to_database(
                 extracted_questions, 
                 document_id, 
                 str(document.deal_id), 
-                str(document.tenant_id)
+                str(document.tenant_id),
+                str(deal.project_id)
             )
             
             return success

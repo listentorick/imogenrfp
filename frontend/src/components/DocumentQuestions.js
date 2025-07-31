@@ -117,6 +117,21 @@ const DocumentQuestions = () => {
     );
   };
 
+  const getProcessingStatusBadge = (status) => {
+    const configs = {
+      pending: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
+      processing: 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300',
+      processed: 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300',
+      error: 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300'
+    };
+
+    return (
+      <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${configs[status] || configs.pending}`}>
+        {status.charAt(0).toUpperCase() + status.slice(1)}
+      </span>
+    );
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center py-12">
@@ -212,7 +227,10 @@ const DocumentQuestions = () => {
                     </h3>
                   </div>
                 </div>
-                {getConfidenceBadge(question.extraction_confidence)}
+                <div className="flex items-center space-x-2">
+                  {getProcessingStatusBadge(question.processing_status)}
+                  {getConfidenceBadge(question.extraction_confidence)}
+                </div>
               </div>
 
               {/* Question Text */}

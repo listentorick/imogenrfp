@@ -8,6 +8,7 @@ class QueueService:
         redis_url = os.getenv('REDIS_URL', 'redis://redis:6379')
         self.redis_client = redis.from_url(redis_url, decode_responses=True)
         self.document_queue = 'document_processing'
+        self.question_queue = 'question_processing'
     
     def enqueue_document_processing(self, document_id: str, tenant_id: str, file_path: str, project_id: str = None, deal_id: str = None):
         """Queue a document for processing"""
@@ -35,9 +36,35 @@ class QueueService:
         """Get the number of jobs in the queue"""
         return self.redis_client.llen(self.document_queue)
     
+    def enqueue_question_processing(self, question_id: str, tenant_id: str, project_id: str, deal_id: str):
+        """Queue a question for processing (answering)"""
+        job_data = {
+            'question_id': question_id,
+            'tenant_id': tenant_id,
+            'project_id': project_id,
+            'deal_id': deal_id,
+            'task_type': 'process_question'
+        }
+        
+        # Add to Redis queue
+        self.redis_client.lpush(self.question_queue, json.dumps(job_data))
+        return True
+    
+    def dequeue_question_processing(self) -> Dict[str, Any] | None:
+        """Get next question processing job"""
+        job_json = self.redis_client.brpop(self.question_queue, timeout=1)
+        if job_json:
+            return json.loads(job_json[1])
+        return None
+    
+    def get_question_queue_length(self) -> int:
+        """Get the number of questions in the queue"""
+        return self.redis_client.llen(self.question_queue)
+    
     def clear_queue(self):
-        """Clear all jobs from the queue (for testing)"""
+        """Clear all jobs from the queues (for testing)"""
         self.redis_client.delete(self.document_queue)
+        self.redis_client.delete(self.question_queue)
 
 # Singleton instance
 queue_service = QueueService()

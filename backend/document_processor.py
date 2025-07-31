@@ -156,31 +156,33 @@ class DocumentProcessor:
             if not text.strip():
                 raise Exception("No text content extracted from file")
             
-            # Prepare metadata
-            metadata = {
-                'tenant_id': tenant_id,
-                'project_id': project_id,
-                'file_path': file_path
-            }
-            
-            # Ensure project collection exists
-            self.chroma_service.create_project_collection(project_id, f"Project {project_id}")
-            
-            # Store in project-specific ChromaDB collection
-            success = self.store_in_vector_db(
-                project_id=project_id,
-                document_id=document_id,
-                text=text,
-                metadata={
-                    'tenant_id': tenant_id,
-                    'project_id': project_id,
-                    'file_path': file_path,
-                    'filename': os.path.basename(file_path)
-                }
-            )
-            
-            if not success:
-                raise Exception("Failed to store in vector database")
+            # Only store project documents in ChromaDB, not deal documents
+            if project_id and not deal_id:
+                # This is a project document - store in ChromaDB
+                logger.info(f"Storing project document {document_id} in ChromaDB")
+                
+                # Ensure project collection exists
+                self.chroma_service.create_project_collection(project_id, f"Project {project_id}")
+                
+                # Store in project-specific ChromaDB collection
+                success = self.store_in_vector_db(
+                    project_id=project_id,
+                    document_id=document_id,
+                    text=text,
+                    metadata={
+                        'tenant_id': tenant_id,
+                        'project_id': project_id,
+                        'file_path': file_path,
+                        'filename': os.path.basename(file_path)
+                    }
+                )
+                
+                if not success:
+                    raise Exception("Failed to store in vector database")
+            else:
+                # This is a deal document - skip ChromaDB storage
+                logger.info(f"Skipping ChromaDB storage for deal document {document_id}")
+                success = True  # No storage needed for deal documents
             
             # Extract questions if document is associated with a deal
             if deal_id:

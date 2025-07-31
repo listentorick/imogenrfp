@@ -10,6 +10,7 @@ import uuid as uuid_lib
 import shutil
 import asyncio
 import json
+import logging
 
 from database import get_db, engine
 from models import Base, User, Tenant, Project, Template, Document, Deal, Question
@@ -27,6 +28,8 @@ from auth import (
 )
 # from rag_service import rag_service
 from template_service import template_service
+
+logger = logging.getLogger(__name__)
 
 Base.metadata.create_all(bind=engine)
 
@@ -683,12 +686,35 @@ def delete_deal_document(
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
     
+    # Delete associated questions first (due to foreign key constraints)
+    try:
+        questions = db.query(Question).filter(Question.document_id == document_id).all()
+        for question in questions:
+            db.delete(question)
+        logger.info(f"Deleted {len(questions)} associated questions for document {document_id}")
+    except Exception as e:
+        logger.error(f"Error deleting associated questions: {e}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Error deleting associated questions")
+    
     # Delete the file from filesystem
     try:
         if os.path.exists(document.file_path):
             os.remove(document.file_path)
     except Exception as e:
         print(f"Error deleting file: {e}")
+    
+    # Remove from ChromaDB if it's a project document (deal documents are not stored in ChromaDB)
+    try:
+        from chroma_service import chroma_service
+        if document.project_id and not document.deal_id:
+            # Only project documents are stored in ChromaDB
+            chroma_service.remove_document_from_project(str(document.project_id), document_id)
+            logger.info(f"Removed project document {document_id} from ChromaDB")
+        else:
+            logger.info(f"Skipping ChromaDB removal for deal document {document_id}")
+    except Exception as e:
+        print(f"Error removing from ChromaDB: {e}")
     
     # Delete the database record
     db.delete(document)
