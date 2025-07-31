@@ -144,10 +144,12 @@ class Deal(DealBase):
 class QuestionBase(BaseModel):
     question_text: str
     answer_text: Optional[str] = None
+    reasoning: Optional[str] = None
     extraction_confidence: Optional[Decimal] = None
     question_order: Optional[int] = None
     processing_status: str = 'pending'
     processing_error: Optional[str] = None
+    answer_status: str = 'unanswered'
 
 class QuestionCreate(QuestionBase):
     deal_id: UUID

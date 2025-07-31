@@ -7,7 +7,8 @@ import {
   BuildingOfficeIcon,
   CalendarIcon,
   DocumentTextIcon,
-  PlusIcon
+  PlusIcon,
+  QuestionMarkCircleIcon
 } from '@heroicons/react/24/outline';
 import { getDeal, updateDeal, deleteDeal } from '../utils/api';
 import DealDocumentUpload from '../components/DealDocumentUpload';

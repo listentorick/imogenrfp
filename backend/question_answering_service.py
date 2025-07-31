@@ -97,6 +97,82 @@ Answer:"""
             logger.error(f"Unexpected error in answer generation: {e}")
             return None
     
+    def _determine_answer_status(self, answer: str) -> str:
+        """Determine if an answer should be classified as 'answered' or 'unanswered'"""
+        if not answer or not answer.strip():
+            return 'unanswered'
+        
+        # Remove <think> sections to focus on the actual answer content
+        import re
+        # Remove anything between <think> and </think> tags
+        cleaned_answer = re.sub(r'<think>.*?</think>', '', answer, flags=re.DOTALL)
+        cleaned_answer = cleaned_answer.strip()
+        
+        if not cleaned_answer:
+            return 'unanswered'
+        
+        # Convert to lowercase for case-insensitive matching
+        answer_lower = cleaned_answer.lower().strip()
+        
+        # Phrases that indicate the question couldn't be answered
+        unanswered_indicators = [
+            "cannot find sufficient information",
+            "i cannot find",
+            "not enough information",
+            "insufficient information",
+            "no information available",
+            "unable to answer",
+            "cannot answer",
+            "not provided in",
+            "no relevant information",
+            "information is not available",
+            "cannot determine",
+            "not specified",
+            "not mentioned",
+            "no details provided",
+            "cannot locate",
+            "not found in the documents",
+            "based on the available documents, i cannot"
+        ]
+        
+        # Check if the answer contains any unanswered indicators
+        for indicator in unanswered_indicators:
+            if indicator in answer_lower:
+                return 'unanswered'
+        
+        # If the cleaned answer is very short (less than 20 characters) and doesn't contain meaningful content
+        if len(cleaned_answer.strip()) < 20:
+            # Check if it's just a generic response
+            generic_responses = ["no", "n/a", "not available", "unknown", "none", "not specified"]
+            if answer_lower in generic_responses:
+                return 'unanswered'
+        
+        # If none of the unanswered indicators are found and we have substantial content, classify as answered
+        return 'answered'
+    
+    def _extract_reasoning(self, answer: str) -> Optional[str]:
+        """Extract reasoning content from <think></think> tags"""
+        if not answer:
+            return None
+        
+        import re
+        # Extract content between <think> and </think> tags
+        think_match = re.search(r'<think>(.*?)</think>', answer, flags=re.DOTALL)
+        if think_match:
+            reasoning = think_match.group(1).strip()
+            return reasoning if reasoning else None
+        return None
+    
+    def _clean_answer(self, answer: str) -> str:
+        """Remove <think></think> sections from answer text"""
+        if not answer:
+            return answer
+        
+        import re
+        # Remove anything between <think> and </think> tags
+        cleaned_answer = re.sub(r'<think>.*?</think>', '', answer, flags=re.DOTALL)
+        return cleaned_answer.strip()
+    
     def update_question_status(self, question_id: str, status: str, answer: Optional[str] = None, error_message: Optional[str] = None):
         """Update question processing status and answer in database"""
         db = next(get_db())
@@ -105,14 +181,24 @@ Answer:"""
             if question:
                 question.processing_status = status
                 if answer:
-                    question.answer_text = answer
+                    # Extract reasoning from <think> tags
+                    reasoning = self._extract_reasoning(answer)
+                    if reasoning:
+                        question.reasoning = reasoning
+                    
+                    # Clean answer text by removing <think> tags
+                    cleaned_answer = self._clean_answer(answer)
+                    question.answer_text = cleaned_answer
+                    
+                    # Determine answer status based on the cleaned content
+                    question.answer_status = self._determine_answer_status(cleaned_answer)
                 if error_message:
                     question.processing_error = error_message
                 elif status == 'processed':
                     # Clear error message when processing succeeds
                     question.processing_error = None
                 db.commit()
-                logger.info(f"Updated question {question_id} status to {status}")
+                logger.info(f"Updated question {question_id} status to {status}, answer_status: {question.answer_status if answer else 'N/A'}")
             else:
                 logger.error(f"Question {question_id} not found")
                 

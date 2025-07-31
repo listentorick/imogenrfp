@@ -13,6 +13,7 @@ import DealDetail from './pages/DealDetail';
 import Templates from './pages/Templates';
 import UserSettings from './pages/UserSettings';
 import DocumentQuestions from './components/DocumentQuestions';
+import DealQuestions from './components/DealQuestions';
 import ProtectedRoute from './components/ProtectedRoute';
 
 const queryClient = new QueryClient();
@@ -59,6 +60,13 @@ function App() {
                 <ProtectedRoute>
                   <Layout>
                     <DealDetail />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/deals/:dealId/questions" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <DealQuestions />
                   </Layout>
                 </ProtectedRoute>
               } />

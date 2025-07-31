@@ -776,10 +776,11 @@ async def websocket_endpoint(websocket: WebSocket, token: str = None):
 @app.get("/deals/{deal_id}/questions", response_model=List[QuestionSchema])
 def get_deal_questions(
     deal_id: str,
+    answer_status: Optional[str] = None,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Get all questions extracted from documents for a deal"""
+    """Get all questions extracted from documents for a deal, optionally filtered by answer status"""
     # Check if deal exists and user has access
     deal = db.query(Deal).filter(
         Deal.id == deal_id,
@@ -789,12 +790,19 @@ def get_deal_questions(
     if not deal:
         raise HTTPException(status_code=404, detail="Deal not found")
     
-    # Get all questions for the deal
-    questions = db.query(Question).filter(
+    # Build query with optional answer status filter
+    query = db.query(Question).filter(
         Question.deal_id == deal_id,
         Question.tenant_id == current_user.tenant_id
-    ).order_by(Question.document_id, Question.question_order).all()
+    )
     
+    # Apply answer status filter if provided
+    if answer_status:
+        if answer_status not in ['answered', 'unanswered']:
+            raise HTTPException(status_code=400, detail="Invalid answer_status. Must be 'answered' or 'unanswered'")
+        query = query.filter(Question.answer_status == answer_status)
+    
+    questions = query.order_by(Question.document_id, Question.question_order).all()
     return questions
 
 @app.patch("/questions/{question_id}", response_model=QuestionSchema)

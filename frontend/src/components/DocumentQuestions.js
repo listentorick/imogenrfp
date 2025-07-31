@@ -5,7 +5,9 @@ import {
   QuestionMarkCircleIcon,
   DocumentTextIcon,
   CheckIcon,
-  ExclamationTriangleIcon
+  ExclamationTriangleIcon,
+  CheckCircleIcon,
+  XCircleIcon
 } from '@heroicons/react/24/outline';
 
 const DocumentQuestions = () => {
@@ -13,8 +15,11 @@ const DocumentQuestions = () => {
   const navigate = useNavigate();
   const [document, setDocument] = useState(null);
   const [questions, setQuestions] = useState([]);
+  const [answeredQuestions, setAnsweredQuestions] = useState([]);
+  const [unansweredQuestions, setUnansweredQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [activeTab, setActiveTab] = useState('answered');
   const [editingAnswer, setEditingAnswer] = useState(null);
   const [answerText, setAnswerText] = useState('');
 
@@ -48,6 +53,12 @@ const DocumentQuestions = () => {
       const doc = documentsData.find(d => d.id === documentId);
       setDocument(doc);
       setQuestions(questionsData);
+      
+      // Separate questions by answer status
+      const answered = questionsData.filter(q => q.answer_status === 'answered');
+      const unanswered = questionsData.filter(q => q.answer_status === 'unanswered');
+      setAnsweredQuestions(answered);
+      setUnansweredQuestions(unanswered);
     } catch (error) {
       console.error('Error loading data:', error);
       setError('Failed to load document questions');
@@ -79,12 +90,8 @@ const DocumentQuestions = () => {
         throw new Error('Failed to save answer');
       }
 
-      // Update the questions list
-      setQuestions(questions.map(q => 
-        q.id === questionId 
-          ? { ...q, answer_text: answerText }
-          : q
-      ));
+      // Reload the questions to get updated categories
+      await loadDocumentAndQuestions();
       
       setEditingAnswer(null);
       setAnswerText('');
@@ -189,13 +196,63 @@ const DocumentQuestions = () => {
               )}
             </div>
           </div>
+
+          {/* Tabs */}
+          {questions.length > 0 && (
+            <div className="mt-6">
+              <div className="border-b border-gray-200 dark:border-gray-700">
+                <nav className="-mb-px flex space-x-8">
+                  <button
+                    onClick={() => setActiveTab('answered')}
+                    className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+                      activeTab === 'answered'
+                        ? 'border-green-500 text-green-600 dark:text-green-400'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2">
+                      <CheckCircleIcon className="h-5 w-5" />
+                      <span>Answered Questions</span>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        activeTab === 'answered' 
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300'
+                          : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                      }`}>
+                        {answeredQuestions.length}
+                      </span>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('unanswered')}
+                    className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+                      activeTab === 'unanswered'
+                        ? 'border-red-500 text-red-600 dark:text-red-400'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2">
+                      <XCircleIcon className="h-5 w-5" />
+                      <span>Unanswered Questions</span>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        activeTab === 'unanswered' 
+                          ? 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300'
+                          : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                      }`}>
+                        {unansweredQuestions.length}
+                      </span>
+                    </div>
+                  </button>
+                </nav>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Questions List */}
-      {questions.length === 0 ? (
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-12">
-          <div className="text-center">
+      {/* Questions Content */}
+      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+        {questions.length === 0 ? (
+          <div className="text-center py-8">
             <QuestionMarkCircleIcon className="mx-auto h-16 w-16 text-gray-400" />
             <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">No Questions Found</h3>
             <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
@@ -207,24 +264,51 @@ const DocumentQuestions = () => {
               <li>• The extraction process encountered an error</li>
             </ul>
           </div>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {questions.map((question, index) => (
+        ) : (
+          <>
+            {(activeTab === 'answered' ? answeredQuestions : unansweredQuestions).length === 0 ? (
+              <div className="text-center py-8">
+                <QuestionMarkCircleIcon className="mx-auto h-16 w-16 text-gray-400" />
+                <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">
+                  No {activeTab} questions found
+                </h3>
+                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                  {activeTab === 'answered' 
+                    ? 'No questions have been successfully answered yet.'
+                    : 'No questions are currently unanswered.'
+                  }
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {(activeTab === 'answered' ? answeredQuestions : unansweredQuestions).map((question, index) => (
             <div key={question.id} className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center space-x-3">
                   <div className="flex-shrink-0">
-                    <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center">
-                      <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
-                        {index + 1}
-                      </span>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                      activeTab === 'answered' 
+                        ? 'bg-green-100 dark:bg-green-900/50' 
+                        : 'bg-red-100 dark:bg-red-900/50'
+                    }`}>
+                      {activeTab === 'answered' ? (
+                        <CheckCircleIcon className="h-5 w-5 text-green-600 dark:text-green-400" />
+                      ) : (
+                        <XCircleIcon className="h-5 w-5 text-red-600 dark:text-red-400" />
+                      )}
                     </div>
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="text-lg font-medium text-gray-900 dark:text-white">
                       Question {index + 1}
                     </h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Answer Status: <span className={`font-medium ${
+                        activeTab === 'answered' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                      }`}>
+                        {question.answer_status}
+                      </span>
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">
@@ -291,9 +375,12 @@ const DocumentQuestions = () => {
                 )}
               </div>
             </div>
-          ))}
-        </div>
-      )}
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 };
