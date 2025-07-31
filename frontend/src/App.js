@@ -12,6 +12,7 @@ import ProjectDetail from './pages/ProjectDetail';
 import DealDetail from './pages/DealDetail';
 import Templates from './pages/Templates';
 import UserSettings from './pages/UserSettings';
+import DocumentQuestions from './components/DocumentQuestions';
 import ProtectedRoute from './components/ProtectedRoute';
 
 const queryClient = new QueryClient();
@@ -58,6 +59,13 @@ function App() {
                 <ProtectedRoute>
                   <Layout>
                     <DealDetail />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/deals/:dealId/documents/:documentId/questions" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <DocumentQuestions />
                   </Layout>
                 </ProtectedRoute>
               } />

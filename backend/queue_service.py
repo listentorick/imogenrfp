@@ -9,12 +9,13 @@ class QueueService:
         self.redis_client = redis.from_url(redis_url, decode_responses=True)
         self.document_queue = 'document_processing'
     
-    def enqueue_document_processing(self, document_id: str, tenant_id: str, project_id: str, file_path: str):
+    def enqueue_document_processing(self, document_id: str, tenant_id: str, file_path: str, project_id: str = None, deal_id: str = None):
         """Queue a document for processing"""
         job_data = {
             'document_id': document_id,
             'tenant_id': tenant_id,
             'project_id': project_id,
+            'deal_id': deal_id,
             'file_path': file_path,
             'task_type': 'process_document'
         }

@@ -118,3 +118,23 @@ class Deal(Base):
     project = relationship("Project", back_populates="deals")
     created_by_user = relationship("User", back_populates="deals")
     documents = relationship("Document", back_populates="deal")
+    questions = relationship("Question", back_populates="deal")
+
+class Question(Base):
+    __tablename__ = "questions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    deal_id = Column(UUID(as_uuid=True), ForeignKey("deals.id"), nullable=False)
+    document_id = Column(UUID(as_uuid=True), ForeignKey("documents.id"), nullable=False)
+    question_text = Column(Text, nullable=False)
+    answer_text = Column(Text)  # Initially null, filled when answered
+    extraction_confidence = Column(Numeric(precision=3, scale=2))  # 0.00 to 1.00
+    question_order = Column(Integer)  # Order of question in document
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    # Relationships
+    tenant = relationship("Tenant")
+    deal = relationship("Deal", back_populates="questions")
+    document = relationship("Document")

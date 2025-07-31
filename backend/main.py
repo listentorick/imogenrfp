@@ -12,11 +12,11 @@ import asyncio
 import json
 
 from database import get_db, engine
-from models import Base, User, Tenant, Project, Template, Document, Deal
+from models import Base, User, Tenant, Project, Template, Document, Deal, Question
 from schemas import (
     User as UserSchema, UserCreate, Tenant as TenantSchema, TenantCreate,
     Project as ProjectSchema, ProjectCreate, Template as TemplateSchema, TemplateCreate, Token, Document as DocumentSchema,
-    DocumentCreate, Deal as DealSchema, DealCreate, DealUpdate
+    DocumentCreate, Deal as DealSchema, DealCreate, DealUpdate, Question as QuestionSchema, QuestionUpdate
 )
 from queue_service import queue_service
 from websocket_manager import websocket_manager
@@ -230,8 +230,8 @@ async def upload_document(
         queue_service.enqueue_document_processing(
             document_id=str(db_document.id),
             tenant_id=str(current_user.tenant_id),
-            project_id=str(project_id),
-            file_path=file_path
+            file_path=file_path,
+            project_id=str(project_id)
         )
     except Exception as e:
         # Log error but don't fail the upload
@@ -416,12 +416,12 @@ async def reprocess_project_documents(
                 db.commit()
                 
                 # Queue for processing with new chunking
-                queue_service.enqueue_document_processing({
-                    'document_id': doc.id,
-                    'file_path': doc.file_path,
-                    'tenant_id': str(current_user.tenant_id),
-                    'project_id': project_id
-                })
+                queue_service.enqueue_document_processing(
+                    document_id=str(doc.id),
+                    tenant_id=str(current_user.tenant_id),
+                    file_path=doc.file_path,
+                    project_id=project_id
+                )
                 reprocessed_count += 1
         
         return {
@@ -591,7 +591,18 @@ def upload_deal_document(
     db.commit()
     db.refresh(document)
     
-    # Note: WebSocket notifications removed due to async context issues in FastAPI sync endpoints
+    # Queue document for processing (including question extraction for deals)  
+    try:
+        queue_service.enqueue_document_processing(
+            document_id=str(document.id),
+            tenant_id=str(current_user.tenant_id),
+            file_path=file_path,
+            project_id=str(deal.project_id),  # Use the deal's project_id
+            deal_id=str(deal_id)
+        )
+    except Exception as e:
+        # Log error but don't fail the upload
+        print(f"Failed to queue document processing: {e}")
     
     return document
 
@@ -734,6 +745,80 @@ async def websocket_endpoint(websocket: WebSocket, token: str = None):
             await websocket.close(code=4000, reason="Connection error")
         except:
             pass
+
+# Question endpoints
+@app.get("/deals/{deal_id}/questions", response_model=List[QuestionSchema])
+def get_deal_questions(
+    deal_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get all questions extracted from documents for a deal"""
+    # Check if deal exists and user has access
+    deal = db.query(Deal).filter(
+        Deal.id == deal_id,
+        Deal.tenant_id == current_user.tenant_id
+    ).first()
+    
+    if not deal:
+        raise HTTPException(status_code=404, detail="Deal not found")
+    
+    # Get all questions for the deal
+    questions = db.query(Question).filter(
+        Question.deal_id == deal_id,
+        Question.tenant_id == current_user.tenant_id
+    ).order_by(Question.document_id, Question.question_order).all()
+    
+    return questions
+
+@app.patch("/questions/{question_id}", response_model=QuestionSchema)
+def update_question_answer(
+    question_id: str,
+    question_update: QuestionUpdate,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Update the answer for a specific question"""
+    # Check if question exists and user has access
+    question = db.query(Question).filter(
+        Question.id == question_id,
+        Question.tenant_id == current_user.tenant_id
+    ).first()
+    
+    if not question:
+        raise HTTPException(status_code=404, detail="Question not found")
+    
+    # Update the answer
+    if question_update.answer_text is not None:
+        question.answer_text = question_update.answer_text
+    
+    db.commit()
+    db.refresh(question)
+    return question
+
+@app.get("/documents/{document_id}/questions", response_model=List[QuestionSchema])
+def get_document_questions(
+    document_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get all questions extracted from a specific document"""
+    # Check if document exists and user has access
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.tenant_id == current_user.tenant_id
+    ).first()
+    
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    # Get all questions for the document
+    questions = db.query(Question).filter(
+        Question.document_id == document_id,
+        Question.tenant_id == current_user.tenant_id  
+    ).order_by(Question.question_order).all()
+    
+    return questions
 
 @app.on_event("startup")
 async def startup_event():

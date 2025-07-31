@@ -139,3 +139,28 @@ class Deal(DealBase):
 
     class Config:
         from_attributes = True
+
+# Question schemas
+class QuestionBase(BaseModel):
+    question_text: str
+    answer_text: Optional[str] = None
+    extraction_confidence: Optional[Decimal] = None
+    question_order: Optional[int] = None
+
+class QuestionCreate(QuestionBase):
+    deal_id: UUID
+    document_id: UUID
+
+class QuestionUpdate(BaseModel):
+    answer_text: Optional[str] = None
+
+class Question(QuestionBase):
+    id: UUID
+    tenant_id: UUID
+    deal_id: UUID
+    document_id: UUID
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   DocumentIcon,
   MagnifyingGlassIcon,
@@ -6,10 +7,11 @@ import {
   ArrowsUpDownIcon,
   TrashIcon,
   EyeIcon,
-  CloudArrowDownIcon
+  CloudArrowDownIcon,
 } from '@heroicons/react/24/outline';
 
 const DealDocumentsList = ({ dealId, refreshTrigger }) => {
+  const navigate = useNavigate();
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -81,7 +83,9 @@ const DealDocumentsList = ({ dealId, refreshTrigger }) => {
     }
   };
 
-  const handleDelete = async (documentId) => {
+  const handleDelete = async (documentId, event) => {
+    event.stopPropagation(); // Prevent row click when deleting
+    
     if (!window.confirm('Are you sure you want to delete this document?')) {
       return;
     }
@@ -108,6 +112,11 @@ const DealDocumentsList = ({ dealId, refreshTrigger }) => {
       console.error('Error deleting document:', error);
       alert('Failed to delete document. Please try again.');
     }
+  };
+
+  const handleViewQuestions = (documentId) => {
+    console.log('Viewing questions for document:', documentId, 'in deal:', dealId);
+    navigate(`/deals/${dealId}/documents/${documentId}/questions`);
   };
 
   const formatFileSize = (bytes) => {
@@ -290,7 +299,11 @@ const DealDocumentsList = ({ dealId, refreshTrigger }) => {
               </thead>
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                 {documents.map((document) => (
-                  <tr key={document.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                  <tr 
+                    key={document.id} 
+                    className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
+                    onClick={() => handleViewQuestions(document.id)}
+                  >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <DocumentIcon className="h-5 w-5 text-gray-400 mr-3" />
@@ -316,7 +329,7 @@ const DealDocumentsList = ({ dealId, refreshTrigger }) => {
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end space-x-2">
                         <button
-                          onClick={() => handleDelete(document.id)}
+                          onClick={(e) => handleDelete(document.id, e)}
                           className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
                           title="Delete document"
                         >

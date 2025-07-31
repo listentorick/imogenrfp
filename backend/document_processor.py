@@ -9,6 +9,7 @@ from models import Document
 from queue_service import queue_service
 from websocket_manager import websocket_manager
 from chroma_service import chroma_service
+from question_extraction_service import question_extraction_service
 
 # Document processing libraries
 import PyPDF2
@@ -141,6 +142,7 @@ class DocumentProcessor:
         file_path = job_data['file_path']
         tenant_id = job_data['tenant_id']
         project_id = job_data['project_id']
+        deal_id = job_data.get('deal_id')  # Deal ID is optional
         
         logger.info(f"Processing document {document_id} at {file_path}")
         
@@ -177,11 +179,23 @@ class DocumentProcessor:
                 }
             )
             
-            if success:
-                self.update_document_status(document_id, 'processed', tenant_id=tenant_id)
-                logger.info(f"Successfully processed document {document_id}")
-            else:
+            if not success:
                 raise Exception("Failed to store in vector database")
+            
+            # Extract questions if document is associated with a deal
+            if deal_id:
+                logger.info(f"Extracting questions from document {document_id} for deal {deal_id}")
+                question_success = question_extraction_service.process_document_for_questions(
+                    document_id, text
+                )
+                if question_success:
+                    logger.info(f"Successfully extracted questions from document {document_id}")
+                else:
+                    logger.warning(f"Failed to extract questions from document {document_id}")
+                    # Don't fail the entire process if question extraction fails
+            
+            self.update_document_status(document_id, 'processed', tenant_id=tenant_id)
+            logger.info(f"Successfully processed document {document_id}")
                 
         except Exception as e:
             error_msg = str(e)
