@@ -10,6 +10,8 @@ import {
   XCircleIcon
 } from '@heroicons/react/24/outline';
 
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+
 const DealQuestions = () => {
   const { dealId } = useParams();
   const navigate = useNavigate();
@@ -112,6 +114,74 @@ const DealQuestions = () => {
   const handleAnswerCancel = () => {
     setEditingAnswer(null);
     setAnswerText('');
+  };
+
+  const handleDownloadDocument = async (documentId) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        alert('Authentication required. Please log in again.');
+        return;
+      }
+
+      console.log('Downloading document:', documentId);
+      const response = await fetch(`${API_BASE_URL}/documents/${documentId}/download`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      console.log('Download response status:', response.status);
+      console.log('Download response headers:', response.headers);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Download error response:', errorText);
+        throw new Error(`Failed to download document: ${response.status} ${errorText}`);
+      }
+
+      // Get filename from Content-Disposition header or use a default
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = `document-${documentId}`;
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
+        if (filenameMatch) {
+          filename = filenameMatch[1];
+        }
+      }
+
+      console.log('Download filename:', filename);
+
+      // Create blob and download
+      const blob = await response.blob();
+      
+      // Use a simpler approach with window.open and blob URL
+      const url = URL.createObjectURL(blob);
+      
+      // Try to trigger download using a temporary anchor element
+      try {
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = filename;
+        anchor.style.display = 'none';
+        
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+      } catch (domError) {
+        console.warn('DOM approach failed, trying window.open:', domError);
+        // Fallback: open in new window/tab
+        window.open(url, '_blank');
+      } finally {
+        // Clean up the object URL after a short delay
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+      
+      console.log('Download completed successfully');
+    } catch (error) {
+      console.error('Error downloading document:', error);
+      alert(`Failed to download document: ${error.message}`);
+    }
   };
 
   const getConfidenceBadge = (confidence) => {
@@ -292,8 +362,8 @@ const DealQuestions = () => {
                   {question.answer_sources.map((sourceId, index) => (
                     <button
                       key={index}
-                      onClick={() => navigate(`/deals/${dealId}/documents/${sourceId}/questions`)}
-                      className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:hover:bg-blue-900/70 transition-colors"
+                      onClick={() => handleDownloadDocument(sourceId)}
+                      className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:hover:bg-blue-900/70 transition-colors cursor-pointer"
                     >
                       <DocumentTextIcon className="h-3 w-3 mr-1" />
                       Document {index + 1}
