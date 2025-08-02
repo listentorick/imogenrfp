@@ -16,7 +16,8 @@ const DealQuestions = () => {
   const [deal, setDeal] = useState(null);
   const [allQuestions, setAllQuestions] = useState([]);
   const [answeredQuestions, setAnsweredQuestions] = useState([]);
-  const [unansweredQuestions, setUnansweredQuestions] = useState([]);
+  const [partiallyAnsweredQuestions, setPartiallyAnsweredQuestions] = useState([]);
+  const [notAnsweredQuestions, setNotAnsweredQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('answered');
@@ -33,7 +34,7 @@ const DealQuestions = () => {
       const token = localStorage.getItem('token');
 
       // Load deal details and all questions in parallel
-      const [dealResponse, allQuestionsResponse, answeredResponse, unansweredResponse] = await Promise.all([
+      const [dealResponse, allQuestionsResponse, answeredResponse, partiallyAnsweredResponse, notAnsweredResponse] = await Promise.all([
         fetch(`http://localhost:8000/deals/${dealId}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
@@ -43,24 +44,29 @@ const DealQuestions = () => {
         fetch(`http://localhost:8000/deals/${dealId}/questions?answer_status=answered`, {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
-        fetch(`http://localhost:8000/deals/${dealId}/questions?answer_status=unanswered`, {
+        fetch(`http://localhost:8000/deals/${dealId}/questions?answer_status=partiallyAnswered`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }),
+        fetch(`http://localhost:8000/deals/${dealId}/questions?answer_status=notAnswered`, {
           headers: { 'Authorization': `Bearer ${token}` }
         })
       ]);
 
-      if (!dealResponse.ok || !allQuestionsResponse.ok || !answeredResponse.ok || !unansweredResponse.ok) {
+      if (!dealResponse.ok || !allQuestionsResponse.ok || !answeredResponse.ok || !partiallyAnsweredResponse.ok || !notAnsweredResponse.ok) {
         throw new Error('Failed to load data');
       }
 
       const dealData = await dealResponse.json();
       const allQuestionsData = await allQuestionsResponse.json();
       const answeredData = await answeredResponse.json();
-      const unansweredData = await unansweredResponse.json();
+      const partiallyAnsweredData = await partiallyAnsweredResponse.json();
+      const notAnsweredData = await notAnsweredResponse.json();
 
       setDeal(dealData);
       setAllQuestions(allQuestionsData);
       setAnsweredQuestions(answeredData);
-      setUnansweredQuestions(unansweredData);
+      setPartiallyAnsweredQuestions(partiallyAnsweredData);
+      setNotAnsweredQuestions(notAnsweredData);
     } catch (error) {
       console.error('Error loading data:', error);
       setError('Failed to load deal questions');
@@ -126,6 +132,24 @@ const DealQuestions = () => {
     );
   };
 
+  const getRelevanceBadge = (relevanceScore) => {
+    if (!relevanceScore && relevanceScore !== 0) return null;
+    
+    const percentage = Math.round(relevanceScore);
+    let colorClass = 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
+    
+    if (percentage >= 90) colorClass = 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300';
+    else if (percentage >= 70) colorClass = 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300';
+    else if (percentage >= 50) colorClass = 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300';
+    else colorClass = 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300';
+
+    return (
+      <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${colorClass}`}>
+        {percentage}% relevant
+      </span>
+    );
+  };
+
   const getProcessingStatusBadge = (status) => {
     const configs = {
       pending: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
@@ -152,7 +176,9 @@ const DealQuestions = () => {
           <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
             {activeTab === 'answered' 
               ? 'No questions have been successfully answered yet.'
-              : 'No questions are currently unanswered.'
+              : activeTab === 'partiallyAnswered'
+              ? 'No questions are currently partially answered.'
+              : 'No questions are currently not answered.'
             }
           </p>
         </div>
@@ -194,6 +220,7 @@ const DealQuestions = () => {
               <div className="flex items-center space-x-2">
                 {getProcessingStatusBadge(question.processing_status)}
                 {getConfidenceBadge(question.extraction_confidence)}
+                {getRelevanceBadge(question.answer_relevance_score)}
               </div>
             </div>
 
@@ -344,22 +371,42 @@ const DealQuestions = () => {
                 </div>
               </button>
               <button
-                onClick={() => setActiveTab('unanswered')}
+                onClick={() => setActiveTab('partiallyAnswered')}
                 className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
-                  activeTab === 'unanswered'
+                  activeTab === 'partiallyAnswered'
+                    ? 'border-yellow-500 text-yellow-600 dark:text-yellow-400'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200'
+                }`}
+              >
+                <div className="flex items-center space-x-2">
+                  <ExclamationTriangleIcon className="h-5 w-5" />
+                  <span>Partially Answered Questions</span>
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    activeTab === 'partiallyAnswered' 
+                      ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300'
+                      : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                  }`}>
+                    {partiallyAnsweredQuestions.length}
+                  </span>
+                </div>
+              </button>
+              <button
+                onClick={() => setActiveTab('notAnswered')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+                  activeTab === 'notAnswered'
                     ? 'border-red-500 text-red-600 dark:text-red-400'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200'
                 }`}
               >
                 <div className="flex items-center space-x-2">
                   <XCircleIcon className="h-5 w-5" />
-                  <span>Unanswered Questions</span>
+                  <span>Not Answered Questions</span>
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    activeTab === 'unanswered' 
+                    activeTab === 'notAnswered' 
                       ? 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300'
                       : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
                   }`}>
-                    {unansweredQuestions.length}
+                    {notAnsweredQuestions.length}
                   </span>
                 </div>
               </button>
@@ -370,7 +417,11 @@ const DealQuestions = () => {
 
       {/* Questions Content */}
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-        {renderQuestionsList(activeTab === 'answered' ? answeredQuestions : unansweredQuestions)}
+        {renderQuestionsList(
+          activeTab === 'answered' ? answeredQuestions : 
+          activeTab === 'partiallyAnswered' ? partiallyAnsweredQuestions : 
+          notAnsweredQuestions
+        )}
       </div>
     </div>
   );

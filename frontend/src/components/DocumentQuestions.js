@@ -16,7 +16,8 @@ const DocumentQuestions = () => {
   const [document, setDocument] = useState(null);
   const [questions, setQuestions] = useState([]);
   const [answeredQuestions, setAnsweredQuestions] = useState([]);
-  const [unansweredQuestions, setUnansweredQuestions] = useState([]);
+  const [partiallyAnsweredQuestions, setPartiallyAnsweredQuestions] = useState([]);
+  const [notAnsweredQuestions, setNotAnsweredQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('answered');
@@ -56,9 +57,11 @@ const DocumentQuestions = () => {
       
       // Separate questions by answer status
       const answered = questionsData.filter(q => q.answer_status === 'answered');
-      const unanswered = questionsData.filter(q => q.answer_status === 'unanswered');
+      const partiallyAnswered = questionsData.filter(q => q.answer_status === 'partiallyAnswered');
+      const notAnswered = questionsData.filter(q => q.answer_status === 'notAnswered');
       setAnsweredQuestions(answered);
-      setUnansweredQuestions(unanswered);
+      setPartiallyAnsweredQuestions(partiallyAnswered);
+      setNotAnsweredQuestions(notAnswered);
     } catch (error) {
       console.error('Error loading data:', error);
       setError('Failed to load document questions');
@@ -120,6 +123,24 @@ const DocumentQuestions = () => {
     return (
       <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${colorClass}`}>
         {percentage}% confident
+      </span>
+    );
+  };
+
+  const getRelevanceBadge = (relevanceScore) => {
+    if (!relevanceScore && relevanceScore !== 0) return null;
+    
+    const percentage = Math.round(relevanceScore);
+    let colorClass = 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
+    
+    if (percentage >= 90) colorClass = 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300';
+    else if (percentage >= 70) colorClass = 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300';
+    else if (percentage >= 50) colorClass = 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300';
+    else colorClass = 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300';
+
+    return (
+      <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${colorClass}`}>
+        {percentage}% relevant
       </span>
     );
   };
@@ -223,22 +244,42 @@ const DocumentQuestions = () => {
                     </div>
                   </button>
                   <button
-                    onClick={() => setActiveTab('unanswered')}
+                    onClick={() => setActiveTab('partiallyAnswered')}
                     className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
-                      activeTab === 'unanswered'
+                      activeTab === 'partiallyAnswered'
+                        ? 'border-yellow-500 text-yellow-600 dark:text-yellow-400'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2">
+                      <ExclamationTriangleIcon className="h-5 w-5" />
+                      <span>Partially Answered Questions</span>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        activeTab === 'partiallyAnswered' 
+                          ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300'
+                          : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                      }`}>
+                        {partiallyAnsweredQuestions.length}
+                      </span>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('notAnswered')}
+                    className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+                      activeTab === 'notAnswered'
                         ? 'border-red-500 text-red-600 dark:text-red-400'
                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200'
                     }`}
                   >
                     <div className="flex items-center space-x-2">
                       <XCircleIcon className="h-5 w-5" />
-                      <span>Unanswered Questions</span>
+                      <span>Not Answered Questions</span>
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        activeTab === 'unanswered' 
+                        activeTab === 'notAnswered' 
                           ? 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300'
                           : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
                       }`}>
-                        {unansweredQuestions.length}
+                        {notAnsweredQuestions.length}
                       </span>
                     </div>
                   </button>
@@ -266,7 +307,7 @@ const DocumentQuestions = () => {
           </div>
         ) : (
           <>
-            {(activeTab === 'answered' ? answeredQuestions : unansweredQuestions).length === 0 ? (
+            {(activeTab === 'answered' ? answeredQuestions : activeTab === 'partiallyAnswered' ? partiallyAnsweredQuestions : notAnsweredQuestions).length === 0 ? (
               <div className="text-center py-8">
                 <QuestionMarkCircleIcon className="mx-auto h-16 w-16 text-gray-400" />
                 <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">
@@ -275,13 +316,15 @@ const DocumentQuestions = () => {
                 <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
                   {activeTab === 'answered' 
                     ? 'No questions have been successfully answered yet.'
-                    : 'No questions are currently unanswered.'
+                    : activeTab === 'partiallyAnswered'
+                    ? 'No questions are currently partially answered.'
+                    : 'No questions are currently not answered.'
                   }
                 </p>
               </div>
             ) : (
               <div className="space-y-4">
-                {(activeTab === 'answered' ? answeredQuestions : unansweredQuestions).map((question, index) => (
+                {(activeTab === 'answered' ? answeredQuestions : activeTab === 'partiallyAnswered' ? partiallyAnsweredQuestions : notAnsweredQuestions).map((question, index) => (
             <div key={question.id} className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center space-x-3">
@@ -314,6 +357,7 @@ const DocumentQuestions = () => {
                 <div className="flex items-center space-x-2">
                   {getProcessingStatusBadge(question.processing_status)}
                   {getConfidenceBadge(question.extraction_confidence)}
+                  {getRelevanceBadge(question.answer_relevance_score)}
                 </div>
               </div>
 

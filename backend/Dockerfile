@@ -2,7 +2,7 @@ FROM python:3.11
 
 WORKDIR /app
 
-# Install system dependencies for ChromaDB 1.0.15
+# Install system dependencies for ChromaDB 1.0.15 and utilities
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y \
     libssl-dev \
     libffi-dev \
     build-essential \
+    netcat-openbsd \
     && rm -rf /var/lib/apt/lists/*
 
 # Upgrade pip and setuptools for better dependency resolution
@@ -26,4 +27,4 @@ COPY . .
 
 EXPOSE 8000
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["./start-server.sh"]

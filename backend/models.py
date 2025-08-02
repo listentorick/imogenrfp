@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Text, Boolean, DateTime, ForeignKey, Integer, Date, ARRAY, Numeric
+from sqlalchemy import Column, String, Text, Boolean, DateTime, ForeignKey, Integer, Date, ARRAY, Numeric, CheckConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -131,12 +131,19 @@ class Question(Base):
     answer_text = Column(Text)  # Initially null, filled when answered
     reasoning = Column(Text)  # LLM reasoning extracted from <think> tags
     extraction_confidence = Column(Numeric(precision=3, scale=2))  # 0.00 to 1.00
+    answer_relevance_score = Column(Numeric(precision=5, scale=2))  # 0.00 to 100.00 - average similarity score from vector search
     question_order = Column(Integer)  # Order of question in document
     processing_status = Column(String(50), default='pending', nullable=False)  # pending, processing, processed, error
     processing_error = Column(Text)  # Error message if processing fails
-    answer_status = Column(String(50), default='unanswered', nullable=False)  # answered, unanswered
+    answer_status = Column(String(50), default='notAnswered', nullable=False)  # answered, notAnswered, partiallyAnswered
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    # Table constraints
+    __table_args__ = (
+        CheckConstraint("answer_status IN ('answered', 'notAnswered', 'partiallyAnswered')", name='check_answer_status'),
+        CheckConstraint("processing_status IN ('pending', 'processing', 'processed', 'error')", name='check_processing_status'),
+    )
 
     # Relationships
     tenant = relationship("Tenant")

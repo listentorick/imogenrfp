@@ -146,10 +146,11 @@ class QuestionBase(BaseModel):
     answer_text: Optional[str] = None
     reasoning: Optional[str] = None
     extraction_confidence: Optional[Decimal] = None
+    answer_relevance_score: Optional[Decimal] = None
     question_order: Optional[int] = None
     processing_status: str = 'pending'
     processing_error: Optional[str] = None
-    answer_status: str = 'unanswered'
+    answer_status: str = 'notAnswered'
 
 class QuestionCreate(QuestionBase):
     deal_id: UUID

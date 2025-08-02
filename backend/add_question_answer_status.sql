@@ -4,7 +4,7 @@ BEGIN
     -- Add answer_status column if it doesn't exist
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
                    WHERE table_name = 'questions' AND column_name = 'answer_status') THEN
-        ALTER TABLE questions ADD COLUMN answer_status VARCHAR(50) DEFAULT 'unanswered' NOT NULL;
+        ALTER TABLE questions ADD COLUMN answer_status VARCHAR(50) DEFAULT 'notAnswered' NOT NULL;
     END IF;
 END $$;
 
@@ -14,15 +14,15 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.constraint_column_usage 
                    WHERE constraint_name = 'check_answer_status') THEN
         ALTER TABLE questions ADD CONSTRAINT check_answer_status 
-            CHECK (answer_status IN ('answered', 'unanswered'));
+            CHECK (answer_status IN ('answered', 'notAnswered'));
     END IF;
 END $$;
 
 -- Add index for performance when filtering by answer status
 CREATE INDEX IF NOT EXISTS idx_questions_answer_status ON questions(answer_status);
 
--- Update existing questions to have unanswered status by default
-UPDATE questions SET answer_status = 'unanswered' WHERE answer_status IS NULL;
+-- Update existing questions to have notAnswered status by default
+UPDATE questions SET answer_status = 'notAnswered' WHERE answer_status IS NULL;
 
 -- Add comments for documentation
-COMMENT ON COLUMN questions.answer_status IS 'Status indicating if question was successfully answered: answered, unanswered';
+COMMENT ON COLUMN questions.answer_status IS 'Status indicating if question was successfully answered: answered, notAnswered';

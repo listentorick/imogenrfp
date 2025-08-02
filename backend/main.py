@@ -31,7 +31,8 @@ from template_service import template_service
 
 logger = logging.getLogger(__name__)
 
-Base.metadata.create_all(bind=engine)
+# Note: Database schema is now managed by Alembic migrations
+# Run 'alembic upgrade head' to apply latest migrations
 
 app = FastAPI(title="RFP SaaS API", version="1.0.0")
 
@@ -798,8 +799,8 @@ def get_deal_questions(
     
     # Apply answer status filter if provided
     if answer_status:
-        if answer_status not in ['answered', 'unanswered']:
-            raise HTTPException(status_code=400, detail="Invalid answer_status. Must be 'answered' or 'unanswered'")
+        if answer_status not in ['answered', 'partiallyAnswered', 'notAnswered']:
+            raise HTTPException(status_code=400, detail="Invalid answer_status. Must be 'answered', 'partiallyAnswered', or 'notAnswered'")
         query = query.filter(Question.answer_status == answer_status)
     
     questions = query.order_by(Question.document_id, Question.question_order).all()
