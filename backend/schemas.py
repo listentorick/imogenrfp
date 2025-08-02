@@ -147,6 +147,7 @@ class QuestionBase(BaseModel):
     reasoning: Optional[str] = None
     extraction_confidence: Optional[Decimal] = None
     answer_relevance_score: Optional[Decimal] = None
+    answer_sources: Optional[List[str]] = None
     question_order: Optional[int] = None
     processing_status: str = 'pending'
     processing_error: Optional[str] = None

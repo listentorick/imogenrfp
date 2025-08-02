@@ -418,6 +418,27 @@ const DocumentQuestions = () => {
                   </div>
                 )}
               </div>
+
+              {/* Sources Section */}
+              {question.answer_sources && question.answer_sources.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Sources
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {question.answer_sources.map((sourceId, index) => (
+                      <button
+                        key={index}
+                        onClick={() => navigate(`/deals/${dealId}/documents/${sourceId}/questions`)}
+                        className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:hover:bg-blue-900/70 transition-colors"
+                      >
+                        <DocumentTextIcon className="h-3 w-3 mr-1" />
+                        Document {index + 1}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
                 ))}
               </div>

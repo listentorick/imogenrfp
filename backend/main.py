@@ -826,6 +826,11 @@ def update_question_answer(
     # Update the answer
     if question_update.answer_text is not None:
         question.answer_text = question_update.answer_text
+        # Mark question as answered when answer text is provided
+        if question_update.answer_text.strip():
+            question.answer_status = "answered"
+        else:
+            question.answer_status = "notAnswered"
     
     db.commit()
     db.refresh(question)

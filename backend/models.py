@@ -132,6 +132,7 @@ class Question(Base):
     reasoning = Column(Text)  # LLM reasoning extracted from <think> tags
     extraction_confidence = Column(Numeric(precision=3, scale=2))  # 0.00 to 1.00
     answer_relevance_score = Column(Numeric(precision=5, scale=2))  # 0.00 to 100.00 - average similarity score from vector search
+    answer_sources = Column(ARRAY(String))  # Array of document IDs that were used as sources for the answer
     question_order = Column(Integer)  # Order of question in document
     processing_status = Column(String(50), default='pending', nullable=False)  # pending, processing, processed, error
     processing_error = Column(Text)  # Error message if processing fails

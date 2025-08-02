@@ -32,7 +32,7 @@ class QuestionAnsweringService:
             )
             
             if search_results:
-                # Extract the text content with individual relevance scores
+                # Extract the text content with individual relevance scores and document sources
                 context_with_relevance = []
                 
                 for result in search_results:
@@ -41,9 +41,16 @@ class QuestionAnsweringService:
                         distance = result.get('distance')
                         relevance_score = max(0, (1 - distance) * 100) if distance is not None else 0.0
                         
+                        # Extract document metadata for sources
+                        metadata = result.get('metadata', {})
+                        document_id = metadata.get('document_id')
+                        
                         context_with_relevance.append({
                             'content': result['content'],
-                            'relevance_score': relevance_score
+                            'relevance_score': relevance_score,
+                            'document_id': document_id,
+                            'filename': metadata.get('filename', 'Unknown'),
+                            'chunk_index': metadata.get('chunk_index', 0)
                         })
                 
                 logger.info(f"Found {len(context_with_relevance)} relevant context chunks")
@@ -242,7 +249,7 @@ Instructions:
         cleaned_answer = re.sub(r'<think>.*?</think>', '', answer, flags=re.DOTALL)
         return cleaned_answer.strip()
     
-    def update_question_status(self, question_id: str, status: str, answer: Optional[str] = None, error_message: Optional[str] = None, structured_status: Optional[str] = None, relevance_score: Optional[float] = None):
+    def update_question_status(self, question_id: str, status: str, answer: Optional[str] = None, error_message: Optional[str] = None, structured_status: Optional[str] = None, relevance_score: Optional[float] = None, sources: Optional[List[str]] = None):
         """Update question processing status and answer in database"""
         db = next(get_db())
         try:
@@ -266,6 +273,10 @@ Instructions:
                     # Set answer relevance score
                     if relevance_score is not None:
                         question.answer_relevance_score = relevance_score
+                    
+                    # Set answer sources
+                    if sources is not None:
+                        question.answer_sources = sources
                     
                 if error_message:
                     question.processing_error = error_message
@@ -315,6 +326,15 @@ Instructions:
             relevance_scores = [item['relevance_score'] for item in context_with_relevance]
             avg_relevance = sum(relevance_scores) / len(relevance_scores) if relevance_scores else 0.0
             
+            # Extract unique document IDs from search results for sources
+            document_ids = []
+            for item in context_with_relevance:
+                doc_id = item.get('document_id')
+                if doc_id and doc_id not in document_ids:
+                    document_ids.append(doc_id)
+            
+            logger.info(f"Found context from {len(document_ids)} unique documents: {document_ids}")
+            
             # Generate structured answer using context
             structured_answer = self.generate_answer_with_context(question_text, context_chunks)
             
@@ -326,9 +346,12 @@ Instructions:
                 # Only set answer_text if status is NOT "notAnswered"
                 final_answer_text = "" if answer_status == "notAnswered" else answer_text
                 
-                # Update question with generated answer, structured status, and relevance score
-                self.update_question_status(question_id, 'processed', answer=final_answer_text, structured_status=answer_status, relevance_score=avg_relevance)
-                logger.info(f"Successfully processed question {question_id} with status: {answer_status}, relevance: {avg_relevance:.2f}%")
+                # Only set sources if we actually have an answer
+                final_sources = document_ids if answer_status != "notAnswered" and document_ids else None
+                
+                # Update question with generated answer, structured status, relevance score, and sources
+                self.update_question_status(question_id, 'processed', answer=final_answer_text, structured_status=answer_status, relevance_score=avg_relevance, sources=final_sources)
+                logger.info(f"Successfully processed question {question_id} with status: {answer_status}, relevance: {avg_relevance:.2f}%, sources: {len(document_ids) if document_ids else 0} documents")
             else:
                 raise Exception("Failed to generate answer")
                 
