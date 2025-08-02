@@ -150,6 +150,14 @@ class DocumentProcessor:
             # Update status to processing
             self.update_document_status(document_id, 'processing', tenant_id=tenant_id)
             
+            # Get document info from database to access original filename
+            db = next(get_db())
+            try:
+                document = db.query(Document).filter(Document.id == document_id).first()
+                original_filename = document.original_filename if document else os.path.basename(file_path)
+            finally:
+                db.close()
+            
             # Extract text from file
             text = self.extract_text_from_file(file_path)
             
@@ -159,7 +167,7 @@ class DocumentProcessor:
             # Only store project documents in ChromaDB, not deal documents
             if project_id and not deal_id:
                 # This is a project document - store in ChromaDB
-                logger.info(f"Storing project document {document_id} in ChromaDB")
+                logger.info(f"Storing project document {document_id} ({original_filename}) in ChromaDB")
                 
                 # Ensure project collection exists
                 self.chroma_service.create_project_collection(project_id, f"Project {project_id}")
@@ -172,8 +180,9 @@ class DocumentProcessor:
                     metadata={
                         'tenant_id': tenant_id,
                         'project_id': project_id,
+                        'document_id': document_id,
                         'file_path': file_path,
-                        'filename': os.path.basename(file_path)
+                        'filename': original_filename
                     }
                 )
                 

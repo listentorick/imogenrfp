@@ -496,16 +496,23 @@ const DocumentQuestions = () => {
                     Sources
                   </label>
                   <div className="flex flex-wrap gap-2">
-                    {question.answer_sources.map((sourceId, index) => (
-                      <button
-                        key={index}
-                        onClick={() => handleDownloadDocument(sourceId)}
-                        className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:hover:bg-blue-900/70 transition-colors cursor-pointer"
-                      >
-                        <DocumentTextIcon className="h-3 w-3 mr-1" />
-                        Document {index + 1}
-                      </button>
-                    ))}
+                    {question.answer_sources.map((sourceId, index) => {
+                      const filename = question.answer_source_filenames && question.answer_source_filenames[index] 
+                        ? question.answer_source_filenames[index] 
+                        : `Document ${index + 1}`;
+                      
+                      return (
+                        <button
+                          key={index}
+                          onClick={() => handleDownloadDocument(sourceId)}
+                          className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:hover:bg-blue-900/70 transition-colors cursor-pointer"
+                          title={`Download ${filename}`}
+                        >
+                          <DocumentTextIcon className="h-3 w-3 mr-1" />
+                          {filename}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}

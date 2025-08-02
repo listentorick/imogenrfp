@@ -290,6 +290,66 @@ def download_document(
         media_type=document.mime_type
     )
 
+@app.delete("/projects/{project_id}/documents/{document_id}")
+def delete_project_document(
+    project_id: str,
+    document_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Delete a document from a project"""
+    # Check if project exists and user has access
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.tenant_id == current_user.tenant_id
+    ).first()
+    
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Get document and verify it belongs to this project
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.project_id == project_id,
+        Document.tenant_id == current_user.tenant_id
+    ).first()
+    
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found in this project")
+    
+    # Remove the file from disk
+    try:
+        if os.path.exists(document.file_path):
+            os.remove(document.file_path)
+            logger.info(f"Deleted file: {document.file_path}")
+    except Exception as e:
+        logger.error(f"Error deleting file: {e}")
+    
+    # Remove from ChromaDB (project documents are stored in ChromaDB)
+    try:
+        from chroma_service import chroma_service
+        chroma_service.remove_document_from_project(project_id, document_id)
+        logger.info(f"Removed project document {document_id} from ChromaDB")
+    except Exception as e:
+        logger.error(f"Error removing from ChromaDB: {e}")
+    
+    # Delete any associated questions
+    try:
+        from models import Question
+        questions = db.query(Question).filter(Question.document_id == document_id).all()
+        for question in questions:
+            db.delete(question)
+        if questions:
+            logger.info(f"Deleted {len(questions)} associated questions")
+    except Exception as e:
+        logger.error(f"Error deleting associated questions: {e}")
+    
+    # Delete the database record
+    db.delete(document)
+    db.commit()
+    
+    return {"message": "Document deleted successfully"}
+
 @app.get("/projects/{project_id}/search")
 def search_project_documents(
     project_id: str,

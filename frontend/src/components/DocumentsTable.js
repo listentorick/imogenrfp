@@ -98,7 +98,7 @@ const DocumentsTable = ({ projectId, onUploadClick }) => {
 
   // Convert delete to use React Query mutation
   const deleteDocumentMutation = useMutation(
-    (documentId) => api.delete(`/documents/${documentId}`),
+    (documentId) => api.delete(`/projects/${projectId}/documents/${documentId}`),
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['project-documents', projectId]);
