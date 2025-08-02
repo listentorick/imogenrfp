@@ -55,6 +55,10 @@ export const AuthProvider = ({ children }) => {
       setToken(access_token);
       api.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
 
+      // Fetch user data immediately after successful login
+      const userResponse = await api.get('/users/me');
+      setUser(userResponse.data);
+
       return { success: true };
     } catch (error) {
       console.error('Login error:', error.response?.data);
