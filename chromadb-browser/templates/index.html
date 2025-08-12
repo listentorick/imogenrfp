@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}ChromaDB Collections{% endblock %}
+
+{% block content %}
+<h1>ChromaDB Collections</h1>
+
+{% if collections %}
+    <div class="alert alert-info">
+        <strong>Found {{ collections|length }} collection(s)</strong>
+    </div>
+    
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Collection Name</th>
+                    <th>Document Count</th>
+                    <th>Metadata</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for collection in collections %}
+                <tr>
+                    <td>
+                        <strong>{{ collection.name }}</strong>
+                    </td>
+                    <td>
+                        <span class="badge {% if collection.count > 0 %}success{% else %}warning{% endif %}">
+                            {{ collection.count }} docs
+                        </span>
+                    </td>
+                    <td>
+                        <div class="metadata">
+                            {% if collection.metadata %}
+                                {% for key, value in collection.metadata.items() %}
+                                    <div><strong>{{ key }}:</strong> {{ value }}</div>
+                                {% endfor %}
+                            {% else %}
+                                <em>No metadata</em>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td>
+                        <a href="/collection/{{ collection.name }}" class="btn btn-sm">📄 Browse</a>
+                        <a href="/collection/{{ collection.name }}/search" class="btn btn-sm">🔍 Search</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% else %}
+    <div class="alert alert-warning">
+        <strong>No collections found</strong><br>
+        Either ChromaDB is empty or there was an error connecting to the database.
+    </div>
+{% endif %}
+
+<div class="card">
+    <h3>About This Tool</h3>
+    <p>This is a simple web interface to browse ChromaDB collections and documents. You can:</p>
+    <ul>
+        <li><strong>Browse</strong> - View all documents in a collection with their metadata</li>
+        <li><strong>Search</strong> - Perform semantic search within a collection</li>
+        <li><strong>Inspect</strong> - View document content and metadata in detail</li>
+    </ul>
+</div>
+
+<script>
+// Auto-refresh every 30 seconds
+setTimeout(function() {
+    window.location.reload();
+}, 30000);
+</script>
+{% endblock %}

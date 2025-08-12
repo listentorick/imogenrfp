@@ -35,6 +35,7 @@ services:
       - JWT_SECRET_KEY=your-secret-key-change-in-production
       - CHROMA_HOST=chromadb
       - CHROMA_PORT=8000
+      - EXPORT_DIR=/app/exports
     depends_on:
       postgres:
         condition: service_healthy
@@ -43,6 +44,7 @@ services:
     volumes:
       - ./backend:/app
       - /app/__pycache__
+      - export_data:/app/exports
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
   frontend:
@@ -64,7 +66,7 @@ services:
     ports:
       - "8001:8000"
     volumes:
-      - chromadb_data:/chroma/chroma
+      - chromadb_data:/data
     environment:
       - IS_PERSISTENT=TRUE
       - CHROMA_SERVER_HOST=0.0.0.0
@@ -115,6 +117,25 @@ services:
       - /app/__pycache__
     command: python question_worker.py
 
+  export-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgresql://rfp_user:rfp_password@postgres:5432/rfp_saas
+      - REDIS_URL=redis://redis:6379
+      - EXPORT_DIR=/app/exports
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - ./backend:/app
+      - /app/__pycache__
+      - export_data:/app/exports
+    command: python export_worker.py
+
   ollama:
     image: ollama/ollama:latest
     ports:
@@ -132,8 +153,21 @@ services:
               count: all
               capabilities: [gpu]
 
+  chromadb-browser:
+    build:
+      context: ./chromadb-browser
+      dockerfile: Dockerfile
+    ports:
+      - "3001:5000"
+    environment:
+      - CHROMA_HOST=chromadb
+      - CHROMA_PORT=8000
+    depends_on:
+      - chromadb
+
 volumes:
   postgres_data:
   redis_data:
   chromadb_data:
   ollama_data:
+  export_data:

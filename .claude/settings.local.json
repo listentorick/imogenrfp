@@ -14,7 +14,8 @@
       "Bash(docker restart:*)",
       "Bash(docker logs:*)",
       "Bash(mkdir:*)",
-      "Bash(docker-compose up:*)"
+      "Bash(docker-compose up:*)",
+      "Bash(grep:*)"
     ],
     "deny": []
   }

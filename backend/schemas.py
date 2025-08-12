@@ -143,6 +143,8 @@ class Deal(DealBase):
 # Question schemas
 class QuestionBase(BaseModel):
     question_text: str
+    original_text: Optional[str] = None
+    question_type: Optional[str] = 'question'
     answer_text: Optional[str] = None
     reasoning: Optional[str] = None
     extraction_confidence: Optional[Decimal] = None
@@ -153,6 +155,11 @@ class QuestionBase(BaseModel):
     processing_status: str = 'pending'
     processing_error: Optional[str] = None
     answer_status: str = 'notAnswered'
+    # Excel-specific fields
+    answer_cell_reference: Optional[str] = None
+    cell_confidence: Optional[Decimal] = None
+    sheet_name: Optional[str] = None
+    document_type: Optional[str] = None
 
 class QuestionCreate(QuestionBase):
     deal_id: UUID
@@ -168,6 +175,41 @@ class Question(QuestionBase):
     document_id: UUID
     created_at: datetime
     updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+# Export schemas
+class ExportBase(BaseModel):
+    document_id: UUID
+    original_filename: str
+
+class ExportCreate(ExportBase):
+    deal_id: UUID
+
+class ExportStatus(BaseModel):
+    id: UUID
+    status: str
+    questions_count: int
+    answered_count: int
+    export_filename: Optional[str] = None
+    error_message: Optional[str] = None
+    created_at: datetime
+    completed_at: Optional[datetime] = None
+
+class Export(ExportBase):
+    id: UUID
+    tenant_id: UUID
+    deal_id: UUID
+    status: str
+    file_path: Optional[str] = None
+    export_filename: Optional[str] = None
+    error_message: Optional[str] = None
+    questions_count: int
+    answered_count: int
+    created_by: UUID
+    created_at: datetime
+    completed_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

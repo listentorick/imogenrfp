@@ -15,6 +15,9 @@ from question_extraction_service import question_extraction_service
 import PyPDF2
 from docx import Document as DocxDocument
 import magic
+import pandas as pd
+import openpyxl
+from openpyxl.utils import get_column_letter
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 logging.basicConfig(level=logging.INFO)
@@ -44,6 +47,10 @@ class DocumentProcessor:
             elif mime_type in ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
                               'application/msword']:
                 return self._extract_from_docx(file_path)
+            elif mime_type in ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                              'application/vnd.ms-excel']:
+                excel_data = self._extract_from_excel(file_path)
+                return excel_data.get('text_content', '')
             elif mime_type.startswith('text/'):
                 return self._extract_from_text(file_path)
             else:
@@ -52,6 +59,18 @@ class DocumentProcessor:
         except Exception as e:
             logger.error(f"Error extracting text from {file_path}: {e}")
             return ""
+    
+    def extract_excel_data(self, file_path: str) -> dict:
+        """Extract structured Excel data for question extraction"""
+        try:
+            mime_type = magic.from_file(file_path, mime=True)
+            if mime_type in ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                           'application/vnd.ms-excel']:
+                return self._extract_from_excel(file_path)
+            return {}
+        except Exception as e:
+            logger.error(f"Error extracting Excel data from {file_path}: {e}")
+            return {}
     
     def _extract_from_pdf(self, file_path: str) -> str:
         """Extract text from PDF file"""
@@ -82,6 +101,42 @@ class DocumentProcessor:
         except Exception as e:
             logger.error(f"Error reading text file {file_path}: {e}")
             return ""
+    
+    def _extract_from_excel(self, file_path: str) -> dict:
+        """Extract structured data from Excel file"""
+        try:
+            # Load workbook to get sheet names and preserve cell references
+            workbook = openpyxl.load_workbook(file_path, data_only=True)
+            sheet = workbook.active  # For now, assume single sheet
+            
+            # Extract cell data with coordinates
+            cells_data = []
+            text_content = ""
+            
+            for row in sheet.iter_rows():
+                for cell in row:
+                    if cell.value is not None and str(cell.value).strip():
+                        cell_ref = f"{get_column_letter(cell.column)}{cell.row}"
+                        cell_value = str(cell.value).strip()
+                        cells_data.append({
+                            'cell_reference': cell_ref,
+                            'value': cell_value,
+                            'row': cell.row,
+                            'column': cell.column
+                        })
+                        text_content += f"Cell {cell_ref}: {cell_value}\n"
+            
+            logger.info(f"Extracted {len(cells_data)} non-empty cells from Excel file")
+            
+            return {
+                'text_content': text_content,
+                'cells_data': cells_data,
+                'sheet_name': sheet.title,
+                'total_cells': len(cells_data)
+            }
+        except Exception as e:
+            logger.error(f"Error reading Excel {file_path}: {e}")
+            return {'text_content': '', 'cells_data': [], 'sheet_name': '', 'total_cells': 0}
     
     def store_in_vector_db(self, project_id: str, document_id: str, text: str, metadata: dict):
         """Store document text in ChromaDB using chroma_service"""
@@ -196,8 +251,21 @@ class DocumentProcessor:
             # Extract questions if document is associated with a deal
             if deal_id:
                 logger.info(f"Extracting questions from document {document_id} for deal {deal_id}")
+                
+                # For Excel documents, get structured data for better question extraction
+                excel_data = None
+                if file_path:
+                    try:
+                        mime_type = magic.from_file(file_path, mime=True)
+                        if mime_type in ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                                       'application/vnd.ms-excel']:
+                            excel_data = self.extract_excel_data(file_path)
+                            logger.info(f"Extracted Excel data with {excel_data.get('total_cells', 0)} cells")
+                    except Exception as e:
+                        logger.warning(f"Could not extract Excel data: {e}")
+                
                 question_success = question_extraction_service.process_document_for_questions(
-                    document_id, text
+                    document_id, text, excel_data
                 )
                 if question_success:
                     logger.info(f"Successfully extracted questions from document {document_id}")

@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block title %}Search: {{ collection.name }}{% endblock %}
+
+{% block content %}
+<h1>Search Collection: {{ collection.name }}</h1>
+
+<div class="card">
+    <h3>Collection Information</h3>
+    <p><strong>Total Documents:</strong> <span class="badge success">{{ collection.count }}</span></p>
+    
+    <div style="margin-top: 15px;">
+        <a href="/collection/{{ collection.name }}" class="btn">📄 Browse Documents</a>
+        <a href="/" class="btn" style="background: #6c757d;">← Back to Collections</a>
+    </div>
+</div>
+
+<div class="search-form">
+    <form method="GET" style="display: flex; gap: 10px; width: 100%;">
+        <input type="text" name="q" value="{{ query }}" placeholder="Enter search query..." required>
+        <button type="submit" class="btn">🔍 Search</button>
+    </form>
+</div>
+
+{% if query %}
+    <h2>Search Results for: "{{ query }}"</h2>
+    
+    {% if results %}
+        <div class="alert alert-info">
+            <strong>Found {{ results|length }} result(s)</strong>
+        </div>
+        
+        {% for result in results %}
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <h3>Search Result #{{ loop.index }}</h3>
+                <div>
+                    <span class="similarity-score {% if result.similarity_score >= 70 %}similarity-high{% elif result.similarity_score >= 40 %}similarity-medium{% else %}similarity-low{% endif %}">
+                        {{ result.similarity_score }}% match
+                    </span>
+                    <span class="badge" style="margin-left: 10px;">
+                        Distance: {{ "%.4f"|format(result.distance) }}
+                    </span>
+                </div>
+            </div>
+            
+            <div style="margin: 10px 0;">
+                <strong>Content:</strong>
+                <div style="background: #f8f9fa; padding: 10px; border-radius: 4px; margin-top: 5px;">
+                    {{ result.content_preview }}
+                </div>
+            </div>
+            
+            {% if result.metadata %}
+            <div style="margin: 10px 0;">
+                <strong>Metadata:</strong>
+                <div class="metadata">
+                    {% for key, value in result.metadata.items() %}
+                        <div><strong>{{ key }}:</strong> {{ value }}</div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            
+            <details>
+                <summary style="cursor: pointer; color: #007bff;">View Full Content</summary>
+                <div style="background: #f8f9fa; padding: 10px; border-radius: 4px; margin-top: 10px; white-space: pre-wrap; font-family: monospace; font-size: 0.9em; max-height: 300px; overflow-y: auto;">{{ result.content }}</div>
+            </details>
+        </div>
+        {% endfor %}
+        
+    {% else %}
+        <div class="alert alert-warning">
+            <strong>No results found</strong> for query "{{ query }}".
+        </div>
+    {% endif %}
+    
+{% else %}
+    <div class="card">
+        <h3>How to Search</h3>
+        <p>Enter a search query above to find semantically similar documents in this collection. The search uses vector embeddings to find content that matches the meaning of your query.</p>
+        
+        <h4>Tips:</h4>
+        <ul>
+            <li><strong>Natural language:</strong> "How do I configure user permissions?"</li>
+            <li><strong>Keywords:</strong> "authentication security access control"</li>
+            <li><strong>Concepts:</strong> "data privacy GDPR compliance"</li>
+        </ul>
+    </div>
+{% endif %}
+
+{% endblock %}

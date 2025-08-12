@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block title %}{{ collection.name }} - Documents{% endblock %}
+
+{% block content %}
+<h1>Collection: {{ collection.name }}</h1>
+
+<div class="card">
+    <h3>Collection Information</h3>
+    <p><strong>Total Documents:</strong> <span class="badge success">{{ collection.count }}</span></p>
+    <p><strong>Displayed:</strong> <span class="badge">{{ displayed_count }} / {{ collection.count }}</span></p>
+    
+    {% if collection.metadata %}
+    <p><strong>Metadata:</strong></p>
+    <div class="metadata">
+        {% for key, value in collection.metadata.items() %}
+            <div><strong>{{ key }}:</strong> {{ value }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    
+    <div style="margin-top: 15px;">
+        <a href="/collection/{{ collection.name }}/search" class="btn">🔍 Search This Collection</a>
+        <a href="/" class="btn" style="background: #6c757d;">← Back to Collections</a>
+    </div>
+</div>
+
+{% if displayed_count < collection.count %}
+<div class="alert alert-warning">
+    <strong>Note:</strong> Showing first {{ displayed_count }} documents out of {{ collection.count }} total.
+    {% if displayed_count < 100 %}
+        <a href="?limit=100">Show more (up to 100)</a>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if documents %}
+    <h2>Documents</h2>
+    
+    {% for doc in documents %}
+    <div class="card">
+        <h3>{{ doc.id }}</h3>
+        
+        <div style="margin: 10px 0;">
+            <strong>Content Preview:</strong>
+            <div style="background: #f8f9fa; padding: 10px; border-radius: 4px; margin-top: 5px;">
+                {{ doc.content_preview }}
+            </div>
+        </div>
+        
+        {% if doc.metadata %}
+        <div style="margin: 10px 0;">
+            <strong>Metadata:</strong>
+            <div class="metadata">
+                {% for key, value in doc.metadata.items() %}
+                    <div><strong>{{ key }}:</strong> {{ value }}</div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        
+        <details>
+            <summary style="cursor: pointer; color: #007bff;">View Full Content</summary>
+            <div style="background: #f8f9fa; padding: 10px; border-radius: 4px; margin-top: 10px; white-space: pre-wrap; font-family: monospace; font-size: 0.9em; max-height: 300px; overflow-y: auto;">{{ doc.content }}</div>
+        </details>
+    </div>
+    {% endfor %}
+    
+{% else %}
+    <div class="alert alert-warning">
+        <strong>No documents found</strong> in this collection.
+    </div>
+{% endif %}
+
+{% endblock %}

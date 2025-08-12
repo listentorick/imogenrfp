@@ -7,7 +7,8 @@ import {
   CheckIcon,
   ExclamationTriangleIcon,
   CheckCircleIcon,
-  XCircleIcon
+  XCircleIcon,
+  ArrowDownTrayIcon
 } from '@heroicons/react/24/outline';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -25,6 +26,8 @@ const DocumentQuestions = () => {
   const [activeTab, setActiveTab] = useState('answered');
   const [editingAnswer, setEditingAnswer] = useState(null);
   const [answerText, setAnswerText] = useState('');
+  const [exportStatus, setExportStatus] = useState(null);
+  const [exportLoading, setExportLoading] = useState(false);
 
   useEffect(() => {
     loadDocumentAndQuestions();
@@ -109,6 +112,134 @@ const DocumentQuestions = () => {
   const handleAnswerCancel = () => {
     setEditingAnswer(null);
     setAnswerText('');
+  };
+
+  const handleExport = async () => {
+    try {
+      setExportLoading(true);
+      const token = localStorage.getItem('token');
+      
+      // Start export job for this specific document
+      const response = await fetch(`${API_BASE_URL}/api/deals/${dealId}/documents/${documentId}/export`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to start export');
+      }
+
+      const exportData = await response.json();
+      setExportStatus(exportData);
+      
+      // Poll for export completion
+      pollExportStatus(exportData.id);
+      
+    } catch (error) {
+      console.error('Error starting export:', error);
+      alert(`Failed to start export: ${error.message}`);
+      setExportLoading(false);
+    }
+  };
+
+  const pollExportStatus = async (exportId) => {
+    const token = localStorage.getItem('token');
+    
+    const checkStatus = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/exports/${exportId}/status`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to check export status');
+        }
+
+        const status = await response.json();
+        setExportStatus(status);
+
+        if (status.status === 'completed') {
+          setExportLoading(false);
+          // Auto-download the file
+          downloadExportFile(exportId);
+        } else if (status.status === 'failed') {
+          setExportLoading(false);
+          alert(`Export failed: ${status.error_message}`);
+        } else if (status.status === 'processing' || status.status === 'pending') {
+          // Continue polling
+          setTimeout(checkStatus, 2000);
+        }
+      } catch (error) {
+        console.error('Error checking export status:', error);
+        setExportLoading(false);
+        alert(`Error checking export status: ${error.message}`);
+      }
+    };
+
+    checkStatus();
+  };
+
+  const downloadExportFile = async (exportId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/api/exports/${exportId}/download`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to download export file');
+      }
+
+      // Get filename from Content-Disposition header
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = `export-${exportId}.xlsx`;
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
+        if (filenameMatch) {
+          filename = filenameMatch[1];
+        }
+      }
+
+      // Create blob and trigger download
+      const blob = await response.blob();
+      
+      // Use the modern File System Access API if available, otherwise fallback
+      if ('showSaveFilePicker' in window) {
+        try {
+          const fileHandle = await window.showSaveFilePicker({
+            suggestedName: filename,
+            types: [{
+              description: 'Excel files',
+              accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'] }
+            }]
+          });
+          const writable = await fileHandle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+          return;
+        } catch (err) {
+          // User cancelled or API not supported, fall back to blob URL
+        }
+      }
+      
+      // Fallback: use blob URL and anchor click
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      console.log('Export downloaded successfully');
+    } catch (error) {
+      console.error('Error downloading export:', error);
+      alert(`Failed to download export: ${error.message}`);
+    }
   };
 
   const handleDownloadDocument = async (documentId) => {
@@ -269,6 +400,47 @@ const DocumentQuestions = () => {
             >
               <ArrowLeftIcon className="h-5 w-5 mr-2" />
               Back to Deal
+            </button>
+          </div>
+          
+          {/* Export Button */}
+          <div className="flex items-center space-x-2">
+            {exportStatus && (
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                Export: <span className={`font-medium ${
+                  exportStatus.status === 'completed' ? 'text-green-600 dark:text-green-400' :
+                  exportStatus.status === 'failed' ? 'text-red-600 dark:text-red-400' :
+                  'text-blue-600 dark:text-blue-400'
+                }`}>
+                  {exportStatus.status}
+                </span>
+                {exportStatus.status === 'completed' && (
+                  <span className="ml-1">
+                    ({exportStatus.answered_count}/{exportStatus.questions_count} answered)
+                  </span>
+                )}
+              </div>
+            )}
+            <button
+              onClick={handleExport}
+              disabled={exportLoading || questions.length === 0}
+              className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm ${
+                exportLoading || questions.length === 0
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed dark:bg-gray-600 dark:text-gray-400'
+                  : 'text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600'
+              } transition-colors`}
+            >
+              {exportLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Exporting...
+                </>
+              ) : (
+                <>
+                  <ArrowDownTrayIcon className="h-4 w-4 mr-2" />
+                  Export Deal
+                </>
+              )}
             </button>
           </div>
         </div>

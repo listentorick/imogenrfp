@@ -128,6 +128,8 @@ class Question(Base):
     deal_id = Column(UUID(as_uuid=True), ForeignKey("deals.id"), nullable=False)
     document_id = Column(UUID(as_uuid=True), ForeignKey("documents.id"), nullable=False)
     question_text = Column(Text, nullable=False)
+    original_text = Column(Text)  # Original text from document before conversion to question format
+    question_type = Column(String(50), default='question')  # question, requirement, criteria, specification, form_field, other
     answer_text = Column(Text)  # Initially null, filled when answered
     reasoning = Column(Text)  # LLM reasoning extracted from <think> tags
     extraction_confidence = Column(Numeric(precision=3, scale=2))  # 0.00 to 1.00
@@ -138,6 +140,11 @@ class Question(Base):
     processing_status = Column(String(50), default='pending', nullable=False)  # pending, processing, processed, error
     processing_error = Column(Text)  # Error message if processing fails
     answer_status = Column(String(50), default='notAnswered', nullable=False)  # answered, notAnswered, partiallyAnswered
+    # Excel-specific fields
+    answer_cell_reference = Column(String(10))  # e.g., "B2", "C15" for Excel documents
+    cell_confidence = Column(Numeric(precision=3, scale=2))  # Confidence in cell location (0.00-1.00)
+    sheet_name = Column(String(255))  # Excel sheet name
+    document_type = Column(String(50))  # "excel", "word", "pdf", etc.
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
@@ -151,3 +158,32 @@ class Question(Base):
     tenant = relationship("Tenant")
     deal = relationship("Deal", back_populates="questions")
     document = relationship("Document")
+
+class Export(Base):
+    __tablename__ = "exports"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    deal_id = Column(UUID(as_uuid=True), ForeignKey("deals.id"), nullable=False)
+    document_id = Column(UUID(as_uuid=True), ForeignKey("documents.id"), nullable=False)
+    status = Column(String(50), default='pending', nullable=False)  # pending, processing, completed, failed
+    file_path = Column(String(500))  # Path to generated export file
+    original_filename = Column(String(255), nullable=False)  # Original document filename
+    export_filename = Column(String(255))  # Generated export filename
+    error_message = Column(Text)  # Error details if failed
+    questions_count = Column(Integer, default=0)  # Total questions exported
+    answered_count = Column(Integer, default=0)  # Questions with answers
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+    completed_at = Column(DateTime)
+
+    # Table constraints
+    __table_args__ = (
+        CheckConstraint("status IN ('pending', 'processing', 'completed', 'failed')", name='check_export_status'),
+    )
+
+    # Relationships
+    tenant = relationship("Tenant")
+    deal = relationship("Deal")
+    document = relationship("Document")
+    created_by_user = relationship("User")

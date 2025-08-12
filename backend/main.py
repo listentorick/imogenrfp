@@ -28,6 +28,7 @@ from auth import (
 )
 # from rag_service import rag_service
 from template_service import template_service
+from export_api import router as export_router
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include routers
+app.include_router(export_router, prefix="/api", tags=["exports"])
 
 def authenticate_user(db: Session, email: str, password: str):
     from auth import verify_password
