@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { 
   ArrowLeftIcon,
   QuestionMarkCircleIcon,
@@ -9,7 +10,8 @@ import {
   CheckCircleIcon,
   XCircleIcon,
   ArrowDownTrayIcon,
-  BookOpenIcon
+  BookOpenIcon,
+  PencilIcon
 } from '@heroicons/react/24/outline';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -29,10 +31,32 @@ const DocumentQuestions = () => {
   const [answerText, setAnswerText] = useState('');
   const [exportStatus, setExportStatus] = useState(null);
   const [exportLoading, setExportLoading] = useState(false);
+  const [flashingTabs, setFlashingTabs] = useState({
+    answered: false,
+    partiallyAnswered: false,
+    notAnswered: false
+  });
 
   useEffect(() => {
     loadDocumentAndQuestions();
   }, [documentId]);
+
+  const triggerFlashAnimation = (tabs) => {
+    // Flash the specified tabs
+    setFlashingTabs(prev => ({
+      ...prev,
+      ...tabs
+    }));
+    
+    // Clear the flash after animation duration
+    setTimeout(() => {
+      setFlashingTabs({
+        answered: false,
+        partiallyAnswered: false,
+        notAnswered: false
+      });
+    }, 600); // 600ms for animation duration
+  };
 
   const loadDocumentAndQuestions = async () => {
     try {
@@ -83,6 +107,11 @@ const DocumentQuestions = () => {
 
   const handleAnswerSave = async (questionId, addToKnowledgeBase = false) => {
     try {
+      // Find the current question to check its previous state
+      const currentQuestion = questions.find(q => q.id === questionId);
+      const hadAnswer = currentQuestion?.answer_text && currentQuestion.answer_text.trim();
+      const willHaveAnswer = answerText && answerText.trim();
+      
       const token = localStorage.getItem('token');
       const response = await fetch(`http://localhost:8000/questions/${questionId}`, {
         method: 'PATCH',
@@ -103,23 +132,46 @@ const DocumentQuestions = () => {
       if (addToKnowledgeBase && answerText.trim()) {
         try {
           await handleAddToKnowledgeBase(questionId);
-          alert('Answer saved and added to project knowledge base!');
+          toast.success('Answer saved and added to project knowledge base!');
         } catch (error) {
           // Answer was saved, but knowledge base addition failed
-          alert('Answer saved, but failed to add to knowledge base: ' + error.message);
+          toast.error('Answer saved, but failed to add to knowledge base: ' + error.message);
         }
       } else {
-        alert('Answer saved successfully!');
+        toast.success('Answer saved successfully!');
       }
 
+      // Save current scroll position
+      const scrollPosition = window.pageYOffset || (document.documentElement && document.documentElement.scrollTop) || (document.body && document.body.scrollTop) || 0;
+      
       // Reload the questions to get updated categories
       await loadDocumentAndQuestions();
+      
+      // Restore scroll position after re-render
+      setTimeout(() => {
+        window.scrollTo(0, scrollPosition);
+      }, 0);
+      
+      // Trigger flash animation if answer status changed
+      if (!hadAnswer && willHaveAnswer) {
+        // Question went from unanswered to answered
+        triggerFlashAnimation({
+          answered: true,
+          notAnswered: true
+        });
+      } else if (hadAnswer && !willHaveAnswer) {
+        // Question went from answered to unanswered (answer removed)
+        triggerFlashAnimation({
+          answered: true,
+          notAnswered: true
+        });
+      }
       
       setEditingAnswer(null);
       setAnswerText('');
     } catch (error) {
       console.error('Error saving answer:', error);
-      alert('Failed to save answer. Please try again.');
+      toast.error('Failed to save answer. Please try again.');
     }
   };
 
@@ -179,7 +231,7 @@ const DocumentQuestions = () => {
       
     } catch (error) {
       console.error('Error starting export:', error);
-      alert(`Failed to start export: ${error.message}`);
+      toast.error(`Failed to start export: ${error.message}`);
       setExportLoading(false);
     }
   };
@@ -206,7 +258,7 @@ const DocumentQuestions = () => {
           downloadExportFile(exportId);
         } else if (status.status === 'failed') {
           setExportLoading(false);
-          alert(`Export failed: ${status.error_message}`);
+          toast.error(`Export failed: ${status.error_message}`);
         } else if (status.status === 'processing' || status.status === 'pending') {
           // Continue polling
           setTimeout(checkStatus, 2000);
@@ -214,7 +266,7 @@ const DocumentQuestions = () => {
       } catch (error) {
         console.error('Error checking export status:', error);
         setExportLoading(false);
-        alert(`Error checking export status: ${error.message}`);
+        toast.error(`Error checking export status: ${error.message}`);
       }
     };
 
@@ -277,7 +329,7 @@ const DocumentQuestions = () => {
       console.log('Export downloaded successfully');
     } catch (error) {
       console.error('Error downloading export:', error);
-      alert(`Failed to download export: ${error.message}`);
+      toast.error(`Failed to download export: ${error.message}`);
     }
   };
 
@@ -285,7 +337,7 @@ const DocumentQuestions = () => {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
-        alert('Authentication required. Please log in again.');
+        toast.error('Authentication required. Please log in again.');
         return;
       }
 
@@ -345,7 +397,7 @@ const DocumentQuestions = () => {
       console.log('Download completed successfully');
     } catch (error) {
       console.error('Error downloading document:', error);
-      alert(`Failed to download document: ${error.message}`);
+      toast.error(`Failed to download document: ${error.message}`);
     }
   };
 
@@ -515,10 +567,14 @@ const DocumentQuestions = () => {
                     <div className="flex items-center space-x-2">
                       <CheckCircleIcon className="h-5 w-5" />
                       <span>Answered Questions</span>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium transition-all duration-300 ${
                         activeTab === 'answered' 
                           ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300'
                           : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                      } ${
+                        flashingTabs.answered 
+                          ? 'animate-pulse bg-green-400 text-white shadow-lg shadow-green-400/50 scale-110' 
+                          : ''
                       }`}>
                         {answeredQuestions.length}
                       </span>
@@ -535,10 +591,14 @@ const DocumentQuestions = () => {
                     <div className="flex items-center space-x-2">
                       <ExclamationTriangleIcon className="h-5 w-5" />
                       <span>Partially Answered Questions</span>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium transition-all duration-300 ${
                         activeTab === 'partiallyAnswered' 
                           ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300'
                           : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                      } ${
+                        flashingTabs.partiallyAnswered 
+                          ? 'animate-pulse bg-yellow-400 text-white shadow-lg shadow-yellow-400/50 scale-110' 
+                          : ''
                       }`}>
                         {partiallyAnsweredQuestions.length}
                       </span>
@@ -555,10 +615,14 @@ const DocumentQuestions = () => {
                     <div className="flex items-center space-x-2">
                       <XCircleIcon className="h-5 w-5" />
                       <span>Not Answered Questions</span>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium transition-all duration-300 ${
                         activeTab === 'notAnswered' 
                           ? 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300'
                           : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                      } ${
+                        flashingTabs.notAnswered 
+                          ? 'animate-pulse bg-red-400 text-white shadow-lg shadow-red-400/50 scale-110' 
+                          : ''
                       }`}>
                         {notAnsweredQuestions.length}
                       </span>
@@ -623,8 +687,8 @@ const DocumentQuestions = () => {
                     </div>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-                      Question {index + 1}
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white line-clamp-2">
+                      {question.question_text}
                     </h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
                       Answer Status: <span className={`font-medium ${
@@ -642,14 +706,6 @@ const DocumentQuestions = () => {
                 </div>
               </div>
 
-              {/* Question Text */}
-              <div className="mb-6">
-                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                  <p className="text-gray-900 dark:text-white font-medium">
-                    {question.question_text}
-                  </p>
-                </div>
-              </div>
 
               {/* Answer Section */}
               <div className="space-y-3">
@@ -691,19 +747,30 @@ const DocumentQuestions = () => {
                     </div>
                   </div>
                 ) : (
-                  <div 
-                    onClick={() => handleAnswerEdit(question.id, question.answer_text)}
-                    className="min-h-20 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 cursor-text hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
-                  >
-                    {question.answer_text ? (
-                      <p className="text-gray-900 dark:text-white whitespace-pre-wrap">
-                        {question.answer_text}
-                      </p>
-                    ) : (
-                      <p className="text-gray-500 dark:text-gray-400 italic">
-                        Click to add your answer...
-                      </p>
-                    )}
+                  <div className="space-y-2">
+                    <div 
+                      onClick={() => handleAnswerEdit(question.id, question.answer_text)}
+                      className="min-h-20 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 cursor-text hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                    >
+                      {question.answer_text ? (
+                        <p className="text-gray-900 dark:text-white whitespace-pre-wrap">
+                          {question.answer_text}
+                        </p>
+                      ) : (
+                        <p className="text-gray-500 dark:text-gray-400 italic">
+                          Click to add your answer...
+                        </p>
+                      )}
+                    </div>
+                    
+                    {/* Always visible edit button */}
+                    <button
+                      onClick={() => handleAnswerEdit(question.id, question.answer_text)}
+                      className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+                    >
+                      <PencilIcon className="h-4 w-4 mr-2" />
+                      {question.answer_text ? 'Improve this answer' : 'Answer this question'}
+                    </button>
                   </div>
                 )}
               </div>
