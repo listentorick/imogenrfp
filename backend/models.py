@@ -187,3 +187,22 @@ class Export(Base):
     deal = relationship("Deal")
     document = relationship("Document")
     created_by_user = relationship("User")
+
+class ProjectQAPair(Base):
+    __tablename__ = "project_qa_pairs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=False)
+    question_text = Column(Text, nullable=False)
+    answer_text = Column(Text, nullable=False)
+    source_question_id = Column(UUID(as_uuid=True), ForeignKey("questions.id"), nullable=True)  # Reference to original deal question
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    # Relationships
+    tenant = relationship("Tenant")
+    project = relationship("Project")
+    source_question = relationship("Question")
+    created_by_user = relationship("User")

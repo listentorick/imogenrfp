@@ -213,3 +213,21 @@ class Export(ExportBase):
 
     class Config:
         from_attributes = True
+
+# Project Q&A Pair schemas
+class ProjectQAPairCreate(BaseModel):
+    question_id: UUID  # ID of the deal question to copy from
+
+class ProjectQAPair(BaseModel):
+    id: UUID
+    tenant_id: UUID
+    project_id: UUID
+    question_text: str
+    answer_text: str
+    source_question_id: Optional[UUID] = None
+    created_by: UUID
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True

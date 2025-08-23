@@ -13,11 +13,12 @@ import json
 import logging
 
 from database import get_db, engine
-from models import Base, User, Tenant, Project, Template, Document, Deal, Question
+from models import Base, User, Tenant, Project, Template, Document, Deal, Question, ProjectQAPair
 from schemas import (
     User as UserSchema, UserCreate, Tenant as TenantSchema, TenantCreate,
     Project as ProjectSchema, ProjectCreate, Template as TemplateSchema, TemplateCreate, Token, Document as DocumentSchema,
-    DocumentCreate, Deal as DealSchema, DealCreate, DealUpdate, Question as QuestionSchema, QuestionUpdate
+    DocumentCreate, Deal as DealSchema, DealCreate, DealUpdate, Question as QuestionSchema, QuestionUpdate,
+    ProjectQAPair as ProjectQAPairSchema, ProjectQAPairCreate
 )
 from queue_service import queue_service
 from websocket_manager import websocket_manager
@@ -899,6 +900,71 @@ def update_question_answer(
     db.commit()
     db.refresh(question)
     return question
+
+@app.post("/questions/{question_id}/add-to-knowledge-base", response_model=ProjectQAPairSchema)
+def add_question_to_knowledge_base(
+    question_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Add an answered deal question to the project knowledge base"""
+    # Get the question and verify access
+    question = db.query(Question).filter(
+        Question.id == question_id,
+        Question.tenant_id == current_user.tenant_id
+    ).first()
+    
+    if not question:
+        raise HTTPException(status_code=404, detail="Question not found")
+    
+    if not question.answer_text or not question.answer_text.strip():
+        raise HTTPException(status_code=400, detail="Question must have an answer to add to knowledge base")
+    
+    # Get the deal to find the project_id
+    deal = db.query(Deal).filter(Deal.id == question.deal_id).first()
+    if not deal:
+        raise HTTPException(status_code=404, detail="Deal not found")
+    
+    # Check if already exists in knowledge base
+    existing = db.query(ProjectQAPair).filter(
+        ProjectQAPair.source_question_id == question_id,
+        ProjectQAPair.tenant_id == current_user.tenant_id
+    ).first()
+    
+    if existing:
+        # Update existing Q&A pair
+        existing.question_text = question.question_text
+        existing.answer_text = question.answer_text
+        existing.project_id = deal.project_id  # In case deal was moved to different project
+        qa_pair = existing
+    else:
+        # Create new knowledge base entry
+        qa_pair = ProjectQAPair(
+            tenant_id=current_user.tenant_id,
+            project_id=deal.project_id,
+            question_text=question.question_text,
+            answer_text=question.answer_text,
+            source_question_id=question.id,
+            created_by=current_user.id
+        )
+        db.add(qa_pair)
+    
+    db.commit()
+    db.refresh(qa_pair)
+    
+    # Queue the Q&A pair for ChromaDB processing
+    try:
+        queue_service.enqueue_qa_pair_processing(
+            qa_pair_id=str(qa_pair.id),
+            tenant_id=str(current_user.tenant_id),
+            project_id=str(deal.project_id)
+        )
+        logger.info(f"Queued Q&A pair {qa_pair.id} for ChromaDB processing")
+    except Exception as e:
+        logger.error(f"Failed to queue Q&A pair for processing: {e}")
+        # Don't fail the API call if queueing fails
+    
+    return qa_pair
 
 @app.get("/documents/{document_id}/questions", response_model=List[QuestionSchema])
 def get_document_questions(

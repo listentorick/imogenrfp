@@ -8,7 +8,8 @@ import {
   ExclamationTriangleIcon,
   CheckCircleIcon,
   XCircleIcon,
-  ArrowDownTrayIcon
+  ArrowDownTrayIcon,
+  BookOpenIcon
 } from '@heroicons/react/24/outline';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -80,7 +81,7 @@ const DocumentQuestions = () => {
     setAnswerText(currentAnswer || '');
   };
 
-  const handleAnswerSave = async (questionId) => {
+  const handleAnswerSave = async (questionId, addToKnowledgeBase = false) => {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`http://localhost:8000/questions/${questionId}`, {
@@ -98,6 +99,19 @@ const DocumentQuestions = () => {
         throw new Error('Failed to save answer');
       }
 
+      // If user chose to add to knowledge base, do that now
+      if (addToKnowledgeBase && answerText.trim()) {
+        try {
+          await handleAddToKnowledgeBase(questionId);
+          alert('Answer saved and added to project knowledge base!');
+        } catch (error) {
+          // Answer was saved, but knowledge base addition failed
+          alert('Answer saved, but failed to add to knowledge base: ' + error.message);
+        }
+      } else {
+        alert('Answer saved successfully!');
+      }
+
       // Reload the questions to get updated categories
       await loadDocumentAndQuestions();
       
@@ -113,6 +127,31 @@ const DocumentQuestions = () => {
     setEditingAnswer(null);
     setAnswerText('');
   };
+
+  const handleAddToKnowledgeBase = async (questionId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:8000/questions/${questionId}/add-to-knowledge-base`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to add to knowledge base');
+      }
+
+      const result = await response.json();
+      console.log('Successfully added to knowledge base:', result);
+    } catch (error) {
+      console.error('Error adding to knowledge base:', error);
+      throw error; // Re-throw so the calling function can handle the error
+    }
+  };
+
 
   const handleExport = async () => {
     try {
@@ -629,11 +668,19 @@ const DocumentQuestions = () => {
                     />
                     <div className="flex items-center space-x-3">
                       <button
-                        onClick={() => handleAnswerSave(question.id)}
+                        onClick={() => handleAnswerSave(question.id, false)}
                         className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
                       >
                         <CheckIcon className="h-4 w-4 mr-2" />
                         Save Answer
+                      </button>
+                      <button
+                        onClick={() => handleAnswerSave(question.id, true)}
+                        disabled={!answerText.trim()}
+                        className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <BookOpenIcon className="h-4 w-4 mr-2" />
+                        Save & Add to Knowledge Base
                       </button>
                       <button
                         onClick={handleAnswerCancel}
@@ -695,6 +742,7 @@ const DocumentQuestions = () => {
           </>
         )}
       </div>
+
     </div>
   );
 };
