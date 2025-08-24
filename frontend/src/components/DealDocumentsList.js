@@ -283,6 +283,12 @@ const DealDocumentsList = ({ dealId, refreshTrigger }) => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Status
                   </th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Questions
+                  </th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Answered
+                  </th>
                   <th 
                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
                     onClick={() => toggleSort('created_at')}
@@ -322,6 +328,20 @@ const DealDocumentsList = ({ dealId, refreshTrigger }) => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {getStatusBadge(document.status)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900 dark:text-white font-medium">
+                      {document.total_questions || 0}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm">
+                      <span className={`font-medium ${
+                        document.answered_questions === document.total_questions && document.total_questions > 0
+                          ? 'text-green-600 dark:text-green-400'
+                          : document.answered_questions > 0
+                          ? 'text-yellow-600 dark:text-yellow-400'
+                          : 'text-gray-500 dark:text-gray-400'
+                      }`}>
+                        {document.answered_questions || 0}
+                      </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                       {new Date(document.created_at).toLocaleDateString()}

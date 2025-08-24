@@ -17,7 +17,7 @@ from models import Base, User, Tenant, Project, Template, Document, Deal, Questi
 from schemas import (
     User as UserSchema, UserCreate, Tenant as TenantSchema, TenantCreate,
     Project as ProjectSchema, ProjectCreate, Template as TemplateSchema, TemplateCreate, Token, Document as DocumentSchema,
-    DocumentCreate, Deal as DealSchema, DealCreate, DealUpdate, Question as QuestionSchema, QuestionUpdate,
+    DocumentCreate, DocumentWithQuestionCounts, Deal as DealSchema, DealCreate, DealUpdate, Question as QuestionSchema, QuestionUpdate,
     ProjectQAPair as ProjectQAPairSchema, ProjectQAPairCreate
 )
 from queue_service import queue_service
@@ -675,7 +675,7 @@ def upload_deal_document(
     
     return document
 
-@app.get("/deals/{deal_id}/documents", response_model=List[DocumentSchema])
+@app.get("/deals/{deal_id}/documents", response_model=List[DocumentWithQuestionCounts])
 def get_deal_documents(
     deal_id: str,
     document_type: Optional[str] = None,
@@ -686,7 +686,7 @@ def get_deal_documents(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Get documents for a specific deal with filtering and sorting"""
+    """Get documents for a specific deal with filtering and sorting, including question counts"""
     # Check if deal exists and user has access
     deal = db.query(Deal).filter(
         Deal.id == deal_id,
@@ -723,7 +723,32 @@ def get_deal_documents(
             query = query.order_by(sort_column)
     
     documents = query.all()
-    return documents
+    
+    # Enhance documents with question counts
+    enhanced_documents = []
+    for doc in documents:
+        # Get question counts for this document
+        total_questions = db.query(Question).filter(
+            Question.document_id == doc.id,
+            Question.tenant_id == current_user.tenant_id
+        ).count()
+        
+        answered_questions = db.query(Question).filter(
+            Question.document_id == doc.id,
+            Question.tenant_id == current_user.tenant_id,
+            Question.answer_status == 'answered'
+        ).count()
+        
+        # Convert to dictionary to add extra fields
+        doc_dict = {
+            **{column.name: getattr(doc, column.name) for column in doc.__table__.columns},
+            'total_questions': total_questions,
+            'answered_questions': answered_questions
+        }
+        
+        enhanced_documents.append(DocumentWithQuestionCounts(**doc_dict))
+    
+    return enhanced_documents
 
 @app.delete("/deals/{deal_id}/documents/{document_id}")
 def delete_deal_document(

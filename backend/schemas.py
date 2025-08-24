@@ -109,6 +109,14 @@ class Document(DocumentBase):
     class Config:
         from_attributes = True
 
+class DocumentWithQuestionCounts(Document):
+    """Document schema with question count statistics"""
+    total_questions: int = 0
+    answered_questions: int = 0
+    
+    class Config:
+        from_attributes = True
+
 # Deal schemas
 class DealBase(BaseModel):
     name: str
