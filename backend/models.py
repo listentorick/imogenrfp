@@ -206,3 +206,38 @@ class ProjectQAPair(Base):
     project = relationship("Project")
     source_question = relationship("Question")
     created_by_user = relationship("User")
+
+class QuestionAnswerAudit(Base):
+    __tablename__ = "question_answer_audits"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    question_id = Column(UUID(as_uuid=True), ForeignKey("questions.id"), nullable=False)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    
+    # Answer content at this point in time
+    answer_text = Column(Text, nullable=False)
+    
+    # Who/what made this change
+    changed_by_user = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)  # NULL if system
+    change_source = Column(String(50), nullable=False)  # 'ai_initial', 'user_edit', 'user_create'
+    
+    # AI-related metadata (only populated for AI changes)
+    ai_confidence_score = Column(Numeric(precision=3, scale=2))  # LLM confidence
+    chromadb_relevance_score = Column(Numeric(precision=3, scale=2))  # Vector search score
+    
+    # Change metadata
+    change_type = Column(String(50), nullable=False)  # 'create', 'edit', 'ai_generate'
+    previous_answer_length = Column(Integer)  # Length of previous answer (for edit analysis)
+    
+    created_at = Column(DateTime, server_default=func.now())
+
+    # Table constraints
+    __table_args__ = (
+        CheckConstraint("change_source IN ('ai_initial', 'user_edit', 'user_create')", name='check_change_source'),
+        CheckConstraint("change_type IN ('create', 'edit', 'ai_generate')", name='check_change_type'),
+    )
+
+    # Relationships
+    question = relationship("Question")
+    tenant = relationship("Tenant")
+    changed_by = relationship("User")

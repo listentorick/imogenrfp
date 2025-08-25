@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import AuditHistoryModal from './AuditHistoryModal';
 import { 
   ArrowLeftIcon,
   QuestionMarkCircleIcon,
@@ -11,7 +12,8 @@ import {
   XCircleIcon,
   ArrowDownTrayIcon,
   BookOpenIcon,
-  PencilIcon
+  PencilIcon,
+  ClockIcon
 } from '@heroicons/react/24/outline';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -35,6 +37,10 @@ const DocumentQuestions = () => {
     answered: false,
     partiallyAnswered: false,
     notAnswered: false
+  });
+  const [auditModal, setAuditModal] = useState({
+    visible: false,
+    questionId: null
   });
 
   useEffect(() => {
@@ -178,6 +184,10 @@ const DocumentQuestions = () => {
   const handleAnswerCancel = () => {
     setEditingAnswer(null);
     setAnswerText('');
+  };
+
+  const handleCloseAuditModal = () => {
+    setAuditModal({ visible: false, questionId: null });
   };
 
   const handleAddToKnowledgeBase = async (questionId) => {
@@ -696,6 +706,31 @@ const DocumentQuestions = () => {
                       }`}>
                         {question.answer_status}
                       </span>
+                      {(question.last_edited_by || question.answer_status === 'answered') && (
+                        <>
+                          {' by '}
+                          <span 
+                            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                              question.last_edit_source === 'ai_initial' 
+                                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300'
+                                : question.last_edit_source === 'user_edit' || question.last_edit_source === 'user_create'
+                                ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300'
+                                : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                            }`}
+                          >
+                            {question.last_edit_source === 'ai_initial' ? 'ImogenRFP' : 
+                             (question.last_edited_by === 'System' ? 'ImogenRFP' : question.last_edited_by) || 'ImogenRFP'}
+                          </span>
+                          <button
+                            onClick={() => setAuditModal({ visible: true, questionId: question.id })}
+                            className="ml-2 inline-flex items-center px-2 py-1 bg-gray-50 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-200 border border-gray-200 dark:border-gray-600 rounded text-xs font-medium transition-colors"
+                            title="View edit history"
+                          >
+                            <ClockIcon className="h-3 w-3 mr-1" />
+                            History
+                          </button>
+                        </>
+                      )}
                     </p>
                   </div>
                 </div>
@@ -705,6 +740,7 @@ const DocumentQuestions = () => {
                   {getRelevanceBadge(question.answer_relevance_score)}
                 </div>
               </div>
+
 
 
               {/* Answer Section */}
@@ -810,6 +846,12 @@ const DocumentQuestions = () => {
         )}
       </div>
 
+      {/* Audit History Modal */}
+      <AuditHistoryModal
+        questionId={auditModal.questionId}
+        isVisible={auditModal.visible}
+        onClose={handleCloseAuditModal}
+      />
     </div>
   );
 };

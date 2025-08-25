@@ -4,7 +4,7 @@ import logging
 from typing import Optional, List, Dict, Any
 from sqlalchemy.orm import Session
 from database import get_db
-from models import Question
+from models import Question, QuestionAnswerAudit
 from chroma_service import chroma_service
 
 logger = logging.getLogger(__name__)
@@ -281,6 +281,25 @@ Instructions:
                     # Set answer source filenames
                     if source_filenames is not None:
                         question.answer_source_filenames = source_filenames
+                    
+                    # Create audit record for AI-generated answer
+                    # Always create audit record for processed questions regardless of answer content
+                    if status == 'processed':
+                        audit = QuestionAnswerAudit(
+                            question_id=question_id,
+                            tenant_id=question.tenant_id,
+                            answer_text=cleaned_answer if cleaned_answer is not None else "",
+                            changed_by_user=None,  # System/AI generated
+                            change_source='ai_initial',
+                            change_type='ai_generate',
+                            ai_confidence_score=None,  # Could be extracted from LLM in future
+                            chromadb_relevance_score=relevance_score,
+                            previous_answer_length=len(question.answer_text) if question.answer_text else 0
+                        )
+                        db.add(audit)
+                        logger.info(f"Created audit record for AI-generated answer for question {question_id} (answer_len={len(cleaned_answer) if cleaned_answer else 0})")
+                    else:
+                        logger.info(f"Skipped audit record for question {question_id}: status={status} (not processed)")
                     
                 if error_message:
                     question.processing_error = error_message

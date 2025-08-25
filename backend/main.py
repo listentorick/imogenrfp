@@ -13,7 +13,7 @@ import json
 import logging
 
 from database import get_db, engine
-from models import Base, User, Tenant, Project, Template, Document, Deal, Question, ProjectQAPair
+from models import Base, User, Tenant, Project, Template, Document, Deal, Question, ProjectQAPair, QuestionAnswerAudit
 from schemas import (
     User as UserSchema, UserCreate, Tenant as TenantSchema, TenantCreate,
     Project as ProjectSchema, ProjectCreate, Template as TemplateSchema, TemplateCreate, Token, Document as DocumentSchema,
@@ -915,16 +915,104 @@ def update_question_answer(
     
     # Update the answer
     if question_update.answer_text is not None:
+        # Store previous answer text for audit
+        previous_answer = question.answer_text
+        previous_answer_length = len(previous_answer) if previous_answer else 0
+        
+        # Determine change type and source
+        if previous_answer:
+            change_type = 'edit'
+            change_source = 'user_edit'
+        else:
+            change_type = 'create'
+            change_source = 'user_create'
+        
         question.answer_text = question_update.answer_text
         # Mark question as answered when answer text is provided
         if question_update.answer_text.strip():
             question.answer_status = "answered"
         else:
             question.answer_status = "notAnswered"
+        
+        # Create audit record for user edit
+        audit = QuestionAnswerAudit(
+            question_id=question_id,
+            tenant_id=current_user.tenant_id,
+            answer_text=question_update.answer_text,
+            changed_by_user=current_user.id,
+            change_source=change_source,
+            change_type=change_type,
+            ai_confidence_score=None,
+            chromadb_relevance_score=None,
+            previous_answer_length=previous_answer_length
+        )
+        db.add(audit)
     
     db.commit()
     db.refresh(question)
     return question
+
+@app.get("/questions/{question_id}/audit-history")
+def get_question_audit_history(
+    question_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get full audit history for a specific question"""
+    # Check if question exists and user has access
+    question = db.query(Question).filter(
+        Question.id == question_id,
+        Question.tenant_id == current_user.tenant_id
+    ).first()
+    
+    if not question:
+        raise HTTPException(status_code=404, detail="Question not found")
+    
+    # Get all audit records for this question, ordered by most recent first
+    audit_records = db.query(QuestionAnswerAudit).filter(
+        QuestionAnswerAudit.question_id == question_id
+    ).order_by(QuestionAnswerAudit.created_at.desc()).all()
+    
+    # Enhance audit records with user information
+    enhanced_records = []
+    for audit in audit_records:
+        audit_dict = {column.name: getattr(audit, column.name) for column in audit.__table__.columns}
+        
+        if audit.changed_by_user:
+            user = db.query(User).filter(User.id == audit.changed_by_user).first()
+            audit_dict['editor_name'] = f"{user.first_name} {user.last_name}" if user and user.first_name else user.email if user else "Unknown User"
+            audit_dict['editor_email'] = user.email if user else None
+        else:
+            audit_dict['editor_name'] = "AI System"
+            audit_dict['editor_email'] = None
+        
+        # Add relative time info
+        from datetime import datetime, timezone
+        if audit.created_at:
+            # Calculate time ago
+            now = datetime.now(timezone.utc)
+            if audit.created_at.tzinfo is None:
+                created_at_utc = audit.created_at.replace(tzinfo=timezone.utc)
+            else:
+                created_at_utc = audit.created_at
+            
+            time_diff = now - created_at_utc
+            if time_diff.days > 0:
+                audit_dict['time_ago'] = f"{time_diff.days} day{'s' if time_diff.days != 1 else ''} ago"
+            elif time_diff.seconds > 3600:
+                hours = time_diff.seconds // 3600
+                audit_dict['time_ago'] = f"{hours} hour{'s' if hours != 1 else ''} ago"
+            elif time_diff.seconds > 60:
+                minutes = time_diff.seconds // 60
+                audit_dict['time_ago'] = f"{minutes} minute{'s' if minutes != 1 else ''} ago"
+            else:
+                audit_dict['time_ago'] = "Just now"
+        else:
+            audit_dict['time_ago'] = "Unknown"
+        
+        enhanced_records.append(audit_dict)
+    
+    return enhanced_records
 
 @app.post("/questions/{question_id}/add-to-knowledge-base", response_model=ProjectQAPairSchema)
 def add_question_to_knowledge_base(
@@ -991,13 +1079,13 @@ def add_question_to_knowledge_base(
     
     return qa_pair
 
-@app.get("/documents/{document_id}/questions", response_model=List[QuestionSchema])
+@app.get("/documents/{document_id}/questions")
 def get_document_questions(
     document_id: str,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Get all questions extracted from a specific document"""
+    """Get all questions extracted from a specific document with last editor information"""
     # Check if document exists and user has access
     document = db.query(Document).filter(
         Document.id == document_id,
@@ -1013,7 +1101,38 @@ def get_document_questions(
         Question.tenant_id == current_user.tenant_id  
     ).order_by(Question.question_order).all()
     
-    return questions
+    # Enhance questions with last editor information
+    enhanced_questions = []
+    
+    for question in questions:
+        # Get the most recent audit record for this question
+        latest_audit = db.query(QuestionAnswerAudit).filter(
+            QuestionAnswerAudit.question_id == question.id
+        ).order_by(QuestionAnswerAudit.created_at.desc()).first()
+        
+        # Convert question to dict to add extra fields
+        question_dict = {column.name: getattr(question, column.name) for column in question.__table__.columns}
+        
+        if latest_audit:
+            # Get user information if it was edited by a user
+            if latest_audit.changed_by_user:
+                editor = db.query(User).filter(User.id == latest_audit.changed_by_user).first()
+                editor_name = f"{editor.first_name} {editor.last_name}" if editor and editor.first_name else editor.email if editor else "Unknown User"
+                question_dict['last_edited_by'] = editor_name
+                question_dict['last_edited_at'] = latest_audit.created_at
+                question_dict['last_edit_source'] = latest_audit.change_source
+            else:
+                question_dict['last_edited_by'] = "System"
+                question_dict['last_edited_at'] = latest_audit.created_at
+                question_dict['last_edit_source'] = latest_audit.change_source
+        else:
+            question_dict['last_edited_by'] = None
+            question_dict['last_edited_at'] = None
+            question_dict['last_edit_source'] = None
+        
+        enhanced_questions.append(question_dict)
+    
+    return enhanced_questions
 
 @app.on_event("startup")
 async def startup_event():
