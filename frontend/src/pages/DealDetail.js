@@ -142,7 +142,7 @@ const DealDetail = () => {
 
   return (
     <div>
-      {/* Header */}
+      {/* Header & Deal Information - Horizontal Layout */}
       <div className="mb-6">
         <button
           onClick={() => navigate(`/projects/${deal.project_id}`)}
@@ -153,29 +153,71 @@ const DealDetail = () => {
         </button>
         
         <div className="bg-white shadow rounded-lg p-6">
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex-1">
-              {isEditing ? (
-                <input
-                  type="text"
-                  value={editData.name}
-                  onChange={(e) => setEditData(prev => ({ ...prev, name: e.target.value }))}
-                  className="text-2xl font-bold text-gray-900 border-b-2 border-blue-500 bg-transparent focus:outline-none"
-                />
-              ) : (
-                <h1 className="text-2xl font-bold text-gray-900">{deal.name}</h1>
-              )}
-              <div className="flex items-center space-x-4 mt-2">
-                {getStatusBadge(isEditing ? editData.status : deal.status)}
-                <span className="text-sm text-gray-500">
-                  Created {new Date(deal.created_at).toLocaleDateString()}
-                </span>
-              </div>
-            </div>
-            
-            <div className="flex space-x-2">
-              {isEditing ? (
-                <>
+          {isEditing ? (
+            // Editing Mode - Stack vertically for better form UX
+            <div className="space-y-6">
+              <div className="flex items-start justify-between">
+                <div className="flex-1 space-y-4">
+                  <div>
+                    <label className="block text-sm text-gray-500 mb-1">Deal Name</label>
+                    <input
+                      type="text"
+                      value={editData.name}
+                      onChange={(e) => setEditData(prev => ({ ...prev, name: e.target.value }))}
+                      className="text-xl font-bold text-gray-900 border-b-2 border-blue-500 bg-transparent focus:outline-none w-full"
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div>
+                      <label className="block text-sm text-gray-500 mb-1">Company</label>
+                      <input
+                        type="text"
+                        value={editData.company}
+                        onChange={(e) => setEditData(prev => ({ ...prev, company: e.target.value }))}
+                        className="font-medium text-gray-900 border-b border-gray-300 bg-transparent focus:outline-none focus:border-blue-500 w-full"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm text-gray-500 mb-1">Deal Value</label>
+                      <input
+                        type="number"
+                        value={editData.value || ''}
+                        onChange={(e) => setEditData(prev => ({ ...prev, value: e.target.value }))}
+                        className="font-medium text-gray-900 border-b border-gray-300 bg-transparent focus:outline-none focus:border-blue-500 w-full"
+                        placeholder="0.00"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm text-gray-500 mb-1">Close Date</label>
+                      <input
+                        type="date"
+                        value={editData.expected_close_date || ''}
+                        onChange={(e) => setEditData(prev => ({ ...prev, expected_close_date: e.target.value }))}
+                        className="font-medium text-gray-900 border-b border-gray-300 bg-transparent focus:outline-none focus:border-blue-500 w-full"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm text-gray-500 mb-1">Status</label>
+                      <select
+                        value={editData.status}
+                        onChange={(e) => setEditData(prev => ({ ...prev, status: e.target.value }))}
+                        className="font-medium text-gray-900 border-b border-gray-300 bg-transparent focus:outline-none focus:border-blue-500 w-full"
+                      >
+                        {statusOptions.map(option => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex space-x-2 ml-6">
                   <button
                     onClick={handleSaveEdit}
                     className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
@@ -188,133 +230,96 @@ const DealDetail = () => {
                   >
                     Cancel
                   </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    onClick={handleEdit}
-                    className="flex items-center px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-                  >
-                    <PencilIcon className="h-4 w-4 mr-2" />
-                    Edit
-                  </button>
-                  <button
-                    onClick={handleDelete}
-                    className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
-                  >
-                    Delete
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Deal Information */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="bg-white shadow rounded-lg p-6">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">Deal Information</h2>
-          
-          <div className="space-y-4">
-            <div className="flex items-center">
-              <BuildingOfficeIcon className="h-5 w-5 text-gray-400 mr-3" />
-              <div>
-                <div className="text-sm text-gray-500">Company</div>
-                {isEditing ? (
-                  <input
-                    type="text"
-                    value={editData.company}
-                    onChange={(e) => setEditData(prev => ({ ...prev, company: e.target.value }))}
-                    className="font-medium text-gray-900 border-b border-gray-300 bg-transparent focus:outline-none focus:border-blue-500"
-                  />
-                ) : (
-                  <div className="font-medium text-gray-900">{deal.company}</div>
-                )}
-              </div>
-            </div>
-
-            <div className="flex items-center">
-              <CurrencyDollarIcon className="h-5 w-5 text-gray-400 mr-3" />
-              <div>
-                <div className="text-sm text-gray-500">Deal Value</div>
-                {isEditing ? (
-                  <input
-                    type="number"
-                    value={editData.value || ''}
-                    onChange={(e) => setEditData(prev => ({ ...prev, value: e.target.value }))}
-                    className="font-medium text-gray-900 border-b border-gray-300 bg-transparent focus:outline-none focus:border-blue-500"
-                    placeholder="0.00"
-                  />
-                ) : (
-                  <div className="font-medium text-gray-900">{formatCurrency(deal.value)}</div>
-                )}
-              </div>
-            </div>
-
-            <div className="flex items-center">
-              <CalendarIcon className="h-5 w-5 text-gray-400 mr-3" />
-              <div>
-                <div className="text-sm text-gray-500">Expected Close Date</div>
-                {isEditing ? (
-                  <input
-                    type="date"
-                    value={editData.expected_close_date || ''}
-                    onChange={(e) => setEditData(prev => ({ ...prev, expected_close_date: e.target.value }))}
-                    className="font-medium text-gray-900 border-b border-gray-300 bg-transparent focus:outline-none focus:border-blue-500"
-                  />
-                ) : (
-                  <div className="font-medium text-gray-900">
-                    {deal.expected_close_date 
-                      ? new Date(deal.expected_close_date).toLocaleDateString()
-                      : 'Not specified'
-                    }
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {isEditing && (
-              <div className="flex items-start">
-                <div className="h-5 w-5 text-gray-400 mr-3 mt-1">Status</div>
-                <div>
-                  <div className="text-sm text-gray-500">Status</div>
-                  <select
-                    value={editData.status}
-                    onChange={(e) => setEditData(prev => ({ ...prev, status: e.target.value }))}
-                    className="font-medium text-gray-900 border-b border-gray-300 bg-transparent focus:outline-none focus:border-blue-500"
-                  >
-                    {statusOptions.map(option => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
                 </div>
               </div>
-            )}
-          </div>
-        </div>
-
-        <div className="bg-white shadow rounded-lg p-6">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">Description</h2>
-          {isEditing ? (
-            <textarea
-              value={editData.description || ''}
-              onChange={(e) => setEditData(prev => ({ ...prev, description: e.target.value }))}
-              rows={6}
-              className="w-full text-gray-700 border border-gray-300 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Enter deal description..."
-            />
+            </div>
           ) : (
-            <div className="text-gray-700">
-              {deal.description || (
-                <span className="text-gray-400 italic">No description provided</span>
-              )}
+            // View Mode - Responsive horizontal layout with controlled wrapping
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+              {/* Title - always stays with metadata when possible */}
+              <div className="flex items-center">
+                <h1 className="text-xl font-bold text-gray-900">{deal.name}</h1>
+              </div>
+              
+              {/* Status Badge */}
+              <div className="flex items-center">
+                {getStatusBadge(deal.status)}
+              </div>
+              
+              {/* Company */}
+              <div className="flex items-center text-sm text-gray-600">
+                <BuildingOfficeIcon className="h-4 w-4 mr-1 flex-shrink-0" />
+                <span className="truncate">{deal.company}</span>
+              </div>
+              
+              {/* Deal Value */}
+              <div className="flex items-center text-sm text-gray-600">
+                <CurrencyDollarIcon className="h-4 w-4 mr-1 flex-shrink-0" />
+                <span>{formatCurrency(deal.value)}</span>
+              </div>
+              
+              {/* Close Date */}
+              <div className="flex items-center text-sm text-gray-600">
+                <CalendarIcon className="h-4 w-4 mr-1 flex-shrink-0" />
+                <span className="whitespace-nowrap">
+                  {deal.expected_close_date 
+                    ? new Date(deal.expected_close_date).toLocaleDateString()
+                    : 'No close date'
+                  }
+                </span>
+              </div>
+              
+              {/* Created Date */}
+              <div className="flex items-center text-sm text-gray-500">
+                <span className="whitespace-nowrap">
+                  Created {new Date(deal.created_at).toLocaleDateString()}
+                </span>
+              </div>
+              
+              {/* Action buttons - higher flex priority, will wrap first */}
+              <div className="flex space-x-2 ml-auto">
+                <button
+                  onClick={handleEdit}
+                  className="flex items-center px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 whitespace-nowrap"
+                >
+                  <PencilIcon className="h-4 w-4 mr-2" />
+                  Edit
+                </button>
+                <button
+                  onClick={handleDelete}
+                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 whitespace-nowrap"
+                >
+                  Delete
+                </button>
+              </div>
             </div>
           )}
         </div>
       </div>
+
+      {/* Description Section - Only show if there is content or in edit mode */}
+      {(deal.description || isEditing) && (
+        <div className="mb-6">
+          <div className="bg-white shadow rounded-lg p-6">
+            <h2 className="text-lg font-medium text-gray-900 mb-4">Description</h2>
+            {isEditing ? (
+              <textarea
+                value={editData.description || ''}
+                onChange={(e) => setEditData(prev => ({ ...prev, description: e.target.value }))}
+                rows={4}
+                className="w-full text-gray-700 border border-gray-300 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Enter deal description..."
+              />
+            ) : (
+              <div className="text-gray-700">
+                {deal.description || (
+                  <span className="text-gray-400 italic">No description provided</span>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Documents Section */}
       <div className="mt-6">
