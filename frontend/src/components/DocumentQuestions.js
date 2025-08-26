@@ -682,21 +682,7 @@ const DocumentQuestions = () => {
                 {(activeTab === 'answered' ? answeredQuestions : activeTab === 'partiallyAnswered' ? partiallyAnsweredQuestions : notAnsweredQuestions).map((question, index) => (
             <div key={question.id} className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
               <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center space-x-3">
-                  <div className="flex-shrink-0">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                      activeTab === 'answered' 
-                        ? 'bg-green-100 dark:bg-green-900/50' 
-                        : 'bg-red-100 dark:bg-red-900/50'
-                    }`}>
-                      {activeTab === 'answered' ? (
-                        <CheckCircleIcon className="h-5 w-5 text-green-600 dark:text-green-400" />
-                      ) : (
-                        <XCircleIcon className="h-5 w-5 text-red-600 dark:text-red-400" />
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0">
                     <h3 className="text-lg font-medium text-gray-900 dark:text-white line-clamp-2">
                       {question.question_text}
                     </h3>
@@ -732,7 +718,6 @@ const DocumentQuestions = () => {
                         </>
                       )}
                     </p>
-                  </div>
                 </div>
                 <div className="flex items-center space-x-2">
                   {getProcessingStatusBadge(question.processing_status)}
@@ -745,10 +730,6 @@ const DocumentQuestions = () => {
 
               {/* Answer Section */}
               <div className="space-y-3">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Answer
-                </label>
-                
                 {editingAnswer === question.id ? (
                   <div className="space-y-3">
                     <textarea
