@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useQuery } from 'react-query';
 import { useAuth } from '../contexts/AuthContext';
+import { api } from '../utils/api';
 import { 
   HomeIcon,
   FolderIcon,
@@ -8,7 +10,9 @@ import {
   ArrowRightOnRectangleIcon,
   CogIcon,
   Bars3Icon,
-  XMarkIcon
+  XMarkIcon,
+  ChevronRightIcon,
+  ChevronDownIcon
 } from '@heroicons/react/24/outline';
 
 const SimpleSidebar = ({ isOpen, setIsOpen }) => {
@@ -16,10 +20,17 @@ const SimpleSidebar = ({ isOpen, setIsOpen }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isMobile, setIsMobile] = useState(false);
+  const [projectsExpanded, setProjectsExpanded] = useState(true);
+
+  // Fetch projects for navigation
+  const { data: projects } = useQuery(
+    'projects',
+    () => api.get('/projects/').then(res => res.data),
+    { staleTime: 5 * 60 * 1000 } // Cache for 5 minutes
+  );
 
   const navigation = [
     { name: 'Dashboard', href: '/', icon: HomeIcon },
-    { name: 'Projects', href: '/projects', icon: FolderIcon },
     { name: 'Templates', href: '/templates', icon: DocumentDuplicateIcon },
     { name: 'Settings', href: '/settings', icon: CogIcon },
   ];
@@ -129,6 +140,68 @@ const SimpleSidebar = ({ isOpen, setIsOpen }) => {
               </Link>
             );
           })}
+
+          {/* Projects Section */}
+          <div className="mt-2">
+            {/* Main Projects Item */}
+            <div className="flex">
+              <Link
+                to="/projects"
+                onClick={handleNavClick}
+                className={`
+                  flex items-center flex-1 py-3 text-sm font-medium transition-all duration-200
+                  ${location.pathname === '/projects'
+                    ? 'bg-blue-900/50 border-r-2 border-blue-500 text-blue-300'
+                    : 'text-gray-300 hover:bg-gray-700'
+                  }
+                  ${isOpen || isMobile ? 'pl-6 pr-2' : 'px-3 justify-center'}
+                `}
+                title={!isOpen && !isMobile ? 'Projects' : undefined}
+              >
+                <FolderIcon className={`h-5 w-5 ${(isOpen || isMobile) ? 'mr-3' : ''}`} />
+                {(isOpen || isMobile) && <span>Projects</span>}
+              </Link>
+              
+              {/* Expand/Collapse Button */}
+              {(isOpen || isMobile) && (
+                <button
+                  onClick={() => setProjectsExpanded(!projectsExpanded)}
+                  className="px-2 py-3 text-gray-300 hover:text-gray-100"
+                >
+                  {projectsExpanded ? (
+                    <ChevronDownIcon className="h-4 w-4" />
+                  ) : (
+                    <ChevronRightIcon className="h-4 w-4" />
+                  )}
+                </button>
+              )}
+            </div>
+
+            {/* Project List */}
+            {projectsExpanded && (isOpen || isMobile) && projects && projects.length > 0 && (
+              <div className="ml-8">
+                {projects.map((project) => {
+                  const isProjectActive = location.pathname.startsWith(`/projects/${project.id}`);
+                  return (
+                    <Link
+                      key={project.id}
+                      to={`/projects/${project.id}/deals`}
+                      onClick={handleNavClick}
+                      className={`
+                        flex items-center py-2 px-4 text-sm transition-all duration-200
+                        ${isProjectActive
+                          ? 'bg-blue-900/30 text-blue-300'
+                          : 'text-gray-400 hover:bg-gray-700 hover:text-gray-300'
+                        }
+                      `}
+                    >
+                      <span className="truncate">{project.name}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </nav>
 
         {/* Logout Button */}
