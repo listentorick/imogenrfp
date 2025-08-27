@@ -186,6 +186,48 @@ const DocumentQuestions = () => {
     setAnswerText('');
   };
 
+  const handleAcceptAnswer = async (questionId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:8000/questions/${questionId}/mark-answered`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to accept answer');
+      }
+
+      toast.success('Answer accepted!');
+      
+      // Save current scroll position
+      const scrollPosition = window.pageYOffset || (document.documentElement && document.documentElement.scrollTop) || (document.body && document.body.scrollTop) || 0;
+      
+      // Reload the questions to get updated categories
+      await loadDocumentAndQuestions();
+      
+      // Restore scroll position after re-render
+      setTimeout(() => {
+        window.scrollTo(0, scrollPosition);
+      }, 0);
+      
+      // Trigger flash animation for answered tab
+      triggerFlashAnimation({
+        answered: true,
+        notAnswered: true,
+        partiallyAnswered: true
+      });
+      
+    } catch (error) {
+      console.error('Error accepting answer:', error);
+      toast.error('Failed to accept answer: ' + error.message);
+    }
+  };
+
   const handleCloseAuditModal = () => {
     setAuditModal({ visible: false, questionId: null });
   };
@@ -780,14 +822,27 @@ const DocumentQuestions = () => {
                       )}
                     </div>
                     
-                    {/* Always visible edit button */}
-                    <button
-                      onClick={() => handleAnswerEdit(question.id, question.answer_text)}
-                      className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
-                    >
-                      <PencilIcon className="h-4 w-4 mr-2" />
-                      {question.answer_text ? 'Improve this answer' : 'Answer this question'}
-                    </button>
+                    {/* Action buttons */}
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => handleAnswerEdit(question.id, question.answer_text)}
+                        className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+                      >
+                        <PencilIcon className="h-4 w-4 mr-2" />
+                        {question.answer_text ? 'Improve this answer' : 'Answer this question'}
+                      </button>
+                      
+                      {/* Accept this answer button - only show for unanswered/partially answered questions with answer text */}
+                      {question.answer_text && question.answer_text.trim() && question.answer_status !== 'answered' && (
+                        <button
+                          onClick={() => handleAcceptAnswer(question.id)}
+                          className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-white bg-green-600 hover:bg-green-700 border border-transparent rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1 transition-colors"
+                        >
+                          <CheckIcon className="h-4 w-4 mr-2" />
+                          Accept this answer
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>

@@ -928,11 +928,8 @@ def update_question_answer(
             change_source = 'user_create'
         
         question.answer_text = question_update.answer_text
-        # Mark question as answered when answer text is provided
-        if question_update.answer_text.strip():
-            question.answer_status = "answered"
-        else:
-            question.answer_status = "notAnswered"
+        # Don't automatically change answer_status when saving answer text
+        # Answer status should only be changed via explicit acceptance
         
         # Create audit record for user edit
         audit = QuestionAnswerAudit(
@@ -1078,6 +1075,47 @@ def add_question_to_knowledge_base(
         # Don't fail the API call if queueing fails
     
     return qa_pair
+
+@app.post("/questions/{question_id}/mark-answered", response_model=QuestionSchema)
+def mark_question_answered(
+    question_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Mark a question as answered"""
+    # Check if question exists and user has access
+    question = db.query(Question).filter(
+        Question.id == question_id,
+        Question.tenant_id == current_user.tenant_id
+    ).first()
+    
+    if not question:
+        raise HTTPException(status_code=404, detail="Question not found")
+    
+    # Can only mark questions as answered if they have answer text
+    if not question.answer_text or not question.answer_text.strip():
+        raise HTTPException(status_code=400, detail="Cannot mark question as answered without answer text")
+    
+    # Mark as answered
+    question.answer_status = "answered"
+    
+    # Create audit record for status change
+    audit = QuestionAnswerAudit(
+        question_id=question_id,
+        tenant_id=current_user.tenant_id,
+        answer_text=question.answer_text,
+        changed_by_user=current_user.id,
+        change_source='user_acceptance',
+        change_type='status_change',
+        ai_confidence_score=None,
+        chromadb_relevance_score=None,
+        previous_answer_length=len(question.answer_text) if question.answer_text else 0
+    )
+    db.add(audit)
+    
+    db.commit()
+    db.refresh(question)
+    return question
 
 @app.get("/documents/{document_id}/questions")
 def get_document_questions(
