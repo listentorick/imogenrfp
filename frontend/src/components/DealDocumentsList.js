@@ -158,6 +158,54 @@ const DealDocumentsList = ({ dealId, refreshTrigger }) => {
     );
   };
 
+  const getProgressBar = (answered, total) => {
+    if (!total || total === 0) {
+      return (
+        <div className="w-full">
+          <div className="text-xs text-center text-gray-500 dark:text-gray-400 mb-1">
+            0/0
+          </div>
+          <div className="w-full h-3 bg-gray-200 dark:bg-gray-600 rounded-full">
+            <div className="h-3 bg-gray-300 dark:bg-gray-500 rounded-full" style={{ width: '0%' }}></div>
+          </div>
+        </div>
+      );
+    }
+
+    const percentage = Math.round((answered / total) * 100);
+    
+    // Calculate color based on progress - from red to green
+    let backgroundColor;
+    if (percentage === 0) {
+      backgroundColor = '#ef4444'; // Red
+    } else if (percentage === 100) {
+      backgroundColor = '#22c55e'; // Green
+    } else {
+      // Interpolate between red and green
+      const red = Math.round(239 - (239 - 34) * (percentage / 100)); // 239 to 34
+      const green = Math.round(68 + (197 - 68) * (percentage / 100)); // 68 to 197
+      const blue = Math.round(68 + (94 - 68) * (percentage / 100)); // 68 to 94
+      backgroundColor = `rgb(${red}, ${green}, ${blue})`;
+    }
+
+    return (
+      <div className="w-full">
+        <div className="text-xs text-center font-medium text-gray-700 dark:text-gray-300 mb-1">
+          {answered}/{total}
+        </div>
+        <div className="w-full h-3 bg-gray-200 dark:bg-gray-600 rounded-full">
+          <div 
+            className="h-3 rounded-full transition-all duration-300 ease-in-out" 
+            style={{ 
+              width: `${percentage}%`,
+              backgroundColor: backgroundColor
+            }}
+          ></div>
+        </div>
+      </div>
+    );
+  };
+
   const toggleSort = (field) => {
     if (sortBy === field) {
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
@@ -268,26 +316,14 @@ const DealDocumentsList = ({ dealId, refreshTrigger }) => {
                       <span className="ml-1">{sortOrder === 'desc' ? '↓' : '↑'}</span>
                     )}
                   </th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Progress
+                  </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Type
                   </th>
-                  <th 
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
-                    onClick={() => toggleSort('file_size')}
-                  >
-                    Size
-                    {sortBy === 'file_size' && (
-                      <span className="ml-1">{sortOrder === 'desc' ? '↓' : '↑'}</span>
-                    )}
-                  </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Status
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Questions
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Answered
                   </th>
                   <th 
                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
@@ -298,7 +334,7 @@ const DealDocumentsList = ({ dealId, refreshTrigger }) => {
                       <span className="ml-1">{sortOrder === 'desc' ? '↓' : '↑'}</span>
                     )}
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  <th className="w-1 px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
@@ -321,27 +357,15 @@ const DealDocumentsList = ({ dealId, refreshTrigger }) => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {getDocumentTypeBadge(document.document_type)}
+                      <div className="flex items-center justify-center px-2">
+                        {getProgressBar(document.answered_questions || 0, document.total_questions || 0)}
+                      </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                      {formatFileSize(document.file_size)}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {getDocumentTypeBadge(document.document_type)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {getStatusBadge(document.status)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900 dark:text-white font-medium">
-                      {document.total_questions || 0}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm">
-                      <span className={`font-medium ${
-                        document.answered_questions === document.total_questions && document.total_questions > 0
-                          ? 'text-green-600 dark:text-green-400'
-                          : document.answered_questions > 0
-                          ? 'text-yellow-600 dark:text-yellow-400'
-                          : 'text-gray-500 dark:text-gray-400'
-                      }`}>
-                        {document.answered_questions || 0}
-                      </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                       {new Date(document.created_at).toLocaleDateString()}
