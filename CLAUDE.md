@@ -192,6 +192,31 @@ This endpoint:
 
 ## Testing
 
+### CRITICAL: Mandatory Test Running
+**ALWAYS run tests before committing any backend code changes!**
+
+```bash
+# Run all backend tests (REQUIRED before any code changes)
+docker-compose exec backend pytest
+
+# Run specific test files
+docker-compose exec backend pytest test_question_answering_service.py
+docker-compose exec backend pytest test_runner.py
+
+# Run tests with verbose output for debugging
+docker-compose exec backend pytest -v
+
+# Run tests and stop on first failure
+docker-compose exec backend pytest -x
+```
+
+### Testing Requirements
+- **All backend code changes** MUST be verified with `docker-compose exec backend pytest`
+- **All tests must pass** before any code is committed or deployed
+- **New features** require corresponding tests
+- **Bug fixes** should include regression tests
+- If tests fail, **fix the issue or update tests** before proceeding
+
 ### Backend Tests
 ```bash
 cd backend
