@@ -173,58 +173,6 @@ Instructions:
             logger.error(f"=== UNEXPECTED ERROR END ===")
             return None
     
-    def _determine_answer_status(self, answer: str) -> str:
-        """Determine if an answer should be classified as 'answered' or 'notAnswered'"""
-        if not answer or not answer.strip():
-            return 'notAnswered'
-        
-        # Remove <think> sections to focus on the actual answer content
-        import re
-        # Remove anything between <think> and </think> tags
-        cleaned_answer = re.sub(r'<think>.*?</think>', '', answer, flags=re.DOTALL)
-        cleaned_answer = cleaned_answer.strip()
-        
-        if not cleaned_answer:
-            return 'notAnswered'
-        
-        # Convert to lowercase for case-insensitive matching
-        answer_lower = cleaned_answer.lower().strip()
-        
-        # Phrases that indicate the question couldn't be answered
-        notAnswered_indicators = [
-            "cannot find sufficient information",
-            "i cannot find",
-            "not enough information",
-            "insufficient information",
-            "no information available",
-            "unable to answer",
-            "cannot answer",
-            "not provided in",
-            "no relevant information",
-            "information is not available",
-            "cannot determine",
-            "not specified",
-            "not mentioned",
-            "no details provided",
-            "cannot locate",
-            "not found in the documents",
-            "based on the available documents, i cannot"
-        ]
-        
-        # Check if the answer contains any notAnswered indicators
-        for indicator in notAnswered_indicators:
-            if indicator in answer_lower:
-                return 'notAnswered'
-        
-        # If the cleaned answer is very short (less than 20 characters) and doesn't contain meaningful content
-        if len(cleaned_answer.strip()) < 20:
-            # Check if it's just a generic response
-            generic_responses = ["no", "n/a", "not available", "unknown", "none", "not specified"]
-            if answer_lower in generic_responses:
-                return 'notAnswered'
-        
-        # If none of the notAnswered indicators are found and we have substantial content, classify as answered
-        return 'answered'
     
     def _extract_reasoning(self, answer: str) -> Optional[str]:
         """Extract reasoning content from <think></think> tags"""

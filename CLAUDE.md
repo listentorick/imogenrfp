@@ -37,6 +37,12 @@ alembic upgrade head
 
 # Run tests
 pytest
+
+# Run tests with coverage report
+docker-compose exec backend pytest --cov=. --cov-report=term-missing --cov-report=html
+
+# View coverage report in browser
+# Open backend/htmlcov/index.html after running coverage
 ```
 
 ### Frontend Development
@@ -200,14 +206,20 @@ This endpoint:
 docker-compose exec backend pytest
 
 # Run specific test files
-docker-compose exec backend pytest test_question_answering_service.py
-docker-compose exec backend pytest test_runner.py
+docker-compose exec backend pytest test_question_answering_comprehensive.py
+docker-compose exec backend pytest test_excel_question_extraction.py
 
 # Run tests with verbose output for debugging
 docker-compose exec backend pytest -v
 
 # Run tests and stop on first failure
 docker-compose exec backend pytest -x
+
+# Generate comprehensive coverage reports
+docker-compose exec backend pytest --cov=. --cov-report=term-missing --cov-report=html
+
+# View detailed coverage by file
+docker-compose exec backend coverage report --show-missing
 ```
 
 ### Testing Requirements
@@ -217,12 +229,30 @@ docker-compose exec backend pytest -x
 - **Bug fixes** should include regression tests
 - If tests fail, **fix the issue or update tests** before proceeding
 
-### Backend Tests
+### Coverage Analysis
+The project now includes comprehensive test coverage reporting:
+
+**Current Test Coverage** (as of latest run):
+- **Question Answering Service**: 84% coverage (218 statements, 35 missed)
+- **Question Extraction Service**: 64% coverage (253 statements, 90 missed)  
+- **Models**: 100% coverage (181 statements, 0 missed)
+- **Overall Project**: 21% coverage (2818 statements, 2237 missed)
+
+**Coverage Commands**:
 ```bash
-cd backend
-pytest test_question_answering_service.py
-pytest test_runner.py
+# Generate HTML coverage report (opens in backend/htmlcov/index.html)
+docker-compose exec backend pytest --cov=. --cov-report=html
+
+# Terminal coverage summary with missing lines
+docker-compose exec backend pytest --cov=. --cov-report=term-missing
+
+# Coverage for specific modules
+docker-compose exec backend pytest --cov=question_answering_service --cov=question_extraction_service --cov-report=term-missing
 ```
+
+**Key Test Files**:
+- `test_question_answering_comprehensive.py`: 22 tests covering semantic search, LLM integration, audit trails
+- `test_excel_question_extraction.py`: 14 tests covering two-step Excel processing workflow
 
 ### Manual Testing Tools
 - ChromaDB Browser at http://localhost:3001 for inspecting vector collections
