@@ -182,11 +182,27 @@ class Export(Base):
         CheckConstraint("status IN ('pending', 'processing', 'completed', 'failed')", name='check_export_status'),
     )
 
+class TenantInvitation(Base):
+    __tablename__ = "tenant_invitations"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    email = Column(String(255), nullable=False)
+    invited_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    invitation_token = Column(String(255), unique=True, nullable=False)
+    status = Column(String(50), default='pending', nullable=False)  # pending, accepted, expired, cancelled
+    expires_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+    accepted_at = Column(DateTime)
+
     # Relationships
     tenant = relationship("Tenant")
-    deal = relationship("Deal")
-    document = relationship("Document")
-    created_by_user = relationship("User")
+    invited_by_user = relationship("User")
+
+    # Table constraints
+    __table_args__ = (
+        CheckConstraint("status IN ('pending', 'accepted', 'expired', 'cancelled')", name='check_invitation_status'),
+    )
 
 class ProjectQAPair(Base):
     __tablename__ = "project_qa_pairs"

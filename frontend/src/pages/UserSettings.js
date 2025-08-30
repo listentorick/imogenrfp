@@ -1,11 +1,69 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { SunIcon, MoonIcon } from '@heroicons/react/24/outline';
+import { SunIcon, MoonIcon, PlusIcon, EnvelopeIcon } from '@heroicons/react/24/outline';
 
 const UserSettings = () => {
   const { user } = useAuth();
   const { isDark, toggleTheme } = useTheme();
+  
+  const [invitations, setInvitations] = useState([]);
+  const [showInviteForm, setShowInviteForm] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [message, setMessage] = useState('');
+
+  const fetchInvitations = async () => {
+    try {
+      const response = await fetch('/api/tenants/invitations', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setInvitations(data);
+      }
+    } catch (error) {
+      console.error('Error fetching invitations:', error);
+    }
+  };
+
+  const sendInvitation = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setMessage('');
+    
+    try {
+      const response = await fetch('/api/tenants/invitations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ email: inviteEmail })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        setMessage('Invitation sent successfully!');
+        setInviteEmail('');
+        setShowInviteForm(false);
+        fetchInvitations();
+      } else {
+        setMessage(data.detail || 'Failed to send invitation');
+      }
+    } catch (error) {
+      setMessage('Error sending invitation');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchInvitations();
+  }, []);
 
   return (
     <div>

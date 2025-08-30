@@ -222,6 +222,31 @@ class Export(ExportBase):
     class Config:
         from_attributes = True
 
+# Tenant Invitation schemas
+class TenantInvitationCreate(BaseModel):
+    email: str
+
+class TenantInvitationResponse(BaseModel):
+    id: UUID
+    email: str
+    status: str
+    expires_at: datetime
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class InvitationAcceptance(BaseModel):
+    first_name: str
+    last_name: str
+    password: str
+
+class InvitationInfo(BaseModel):
+    tenant_name: str
+    invited_by_name: str
+    email: str
+    expires_at: datetime
+
 # Project Q&A Pair schemas
 class ProjectQAPairCreate(BaseModel):
     question_id: UUID  # ID of the deal question to copy from

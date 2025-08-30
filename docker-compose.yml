@@ -36,10 +36,14 @@ services:
       - CHROMA_HOST=chromadb
       - CHROMA_PORT=8000
       - EXPORT_DIR=/app/exports
+      - SMTP_HOST=mailhog
+      - SMTP_PORT=1025
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_started
+      mailhog:
         condition: service_started
     volumes:
       - ./backend:/app
@@ -185,6 +189,13 @@ services:
       - CHROMA_PORT=8000
     depends_on:
       - chromadb
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    ports:
+      - "1025:1025"  # SMTP server
+      - "8025:8025"  # Web UI
+    restart: unless-stopped
 
 volumes:
   postgres_data:

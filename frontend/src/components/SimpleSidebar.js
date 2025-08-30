@@ -12,7 +12,8 @@ import {
   Bars3Icon,
   XMarkIcon,
   ChevronRightIcon,
-  ChevronDownIcon
+  ChevronDownIcon,
+  UsersIcon
 } from '@heroicons/react/24/outline';
 
 const SimpleSidebar = ({ isOpen, setIsOpen }) => {
@@ -32,6 +33,7 @@ const SimpleSidebar = ({ isOpen, setIsOpen }) => {
   const navigation = [
     { name: 'Dashboard', href: '/', icon: HomeIcon },
     { name: 'Templates', href: '/templates', icon: DocumentDuplicateIcon },
+    { name: 'Team', href: '/team', icon: UsersIcon },
     { name: 'Settings', href: '/settings', icon: CogIcon },
   ];
 

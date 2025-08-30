@@ -12,7 +12,9 @@ import Projects from './pages/Projects';
 import ProjectDetail from './pages/ProjectDetail';
 import DealDetail from './pages/DealDetail';
 import Templates from './pages/Templates';
+import Team from './pages/Team';
 import UserSettings from './pages/UserSettings';
+import InvitationAccept from './pages/InvitationAccept';
 import DocumentQuestions from './components/DocumentQuestions';
 import DealQuestions from './components/DealQuestions';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -29,6 +31,7 @@ function App() {
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/invitation/accept" element={<InvitationAccept />} />
               <Route path="/" element={
                 <ProtectedRoute>
                   <Layout>
@@ -82,6 +85,13 @@ function App() {
                 <ProtectedRoute>
                   <Layout>
                     <Templates />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/team" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Team />
                   </Layout>
                 </ProtectedRoute>
               } />

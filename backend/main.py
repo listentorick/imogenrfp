@@ -3,7 +3,7 @@ from fastapi.responses import FileResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from datetime import timedelta
+from datetime import timedelta, datetime
 from typing import List, Optional
 import os
 import uuid as uuid_lib
@@ -13,11 +13,12 @@ import json
 import logging
 
 from database import get_db, engine
-from models import Base, User, Tenant, Project, Template, Document, Deal, Question, ProjectQAPair, QuestionAnswerAudit, Export
+from models import Base, User, Tenant, Project, Template, Document, Deal, Question, ProjectQAPair, QuestionAnswerAudit, Export, TenantInvitation
 from schemas import (
     User as UserSchema, UserCreate, Tenant as TenantSchema, TenantCreate,
     Project as ProjectSchema, ProjectCreate, Template as TemplateSchema, TemplateCreate, Token, Document as DocumentSchema,
     DocumentCreate, DocumentWithQuestionCounts, Deal as DealSchema, DealCreate, DealUpdate, Question as QuestionSchema, QuestionUpdate,
+    TenantInvitationCreate, TenantInvitationResponse, InvitationAcceptance, InvitationInfo,
     ProjectQAPair as ProjectQAPairSchema, ProjectQAPairCreate
 )
 from queue_service import queue_service
@@ -111,6 +112,185 @@ def login_user(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = D
 @app.get("/users/me", response_model=UserSchema)
 def read_users_me(current_user: User = Depends(get_current_active_user)):
     return current_user
+
+# Tenant Invitation Endpoints
+@app.post("/tenants/invitations", response_model=TenantInvitationResponse)
+def send_tenant_invitation(
+    invitation: TenantInvitationCreate,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Send invitation to join current user's tenant"""
+    import secrets
+    from datetime import datetime, timedelta
+    from email_service import email_service
+    
+    # Check if user already exists in any tenant
+    existing_user = db.query(User).filter(User.email == invitation.email).first()
+    if existing_user:
+        raise HTTPException(
+            status_code=400,
+            detail="User with this email already exists"
+        )
+    
+    # Check if invitation already exists for this tenant
+    existing_invitation = db.query(TenantInvitation).filter(
+        TenantInvitation.tenant_id == current_user.tenant_id,
+        TenantInvitation.email == invitation.email,
+        TenantInvitation.status == 'pending'
+    ).first()
+    
+    if existing_invitation:
+        raise HTTPException(
+            status_code=400,
+            detail="Invitation already sent to this email"
+        )
+    
+    # Generate secure token
+    invitation_token = secrets.token_urlsafe(32)
+    
+    # Create invitation record
+    db_invitation = TenantInvitation(
+        tenant_id=current_user.tenant_id,
+        email=invitation.email,
+        invited_by=current_user.id,
+        invitation_token=invitation_token,
+        expires_at=datetime.utcnow() + timedelta(days=7)  # 7 day expiry
+    )
+    
+    db.add(db_invitation)
+    db.commit()
+    db.refresh(db_invitation)
+    
+    # Send email
+    tenant = db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
+    invited_by_name = f"{current_user.first_name} {current_user.last_name}".strip() or current_user.email
+    
+    email_sent = email_service.send_invitation_email(
+        to_email=invitation.email,
+        invitation_token=invitation_token,
+        tenant_name=tenant.name,
+        invited_by_name=invited_by_name
+    )
+    
+    if not email_sent:
+        logger.warning(f"Failed to send invitation email to {invitation.email}")
+    
+    return db_invitation
+
+@app.get("/invitations/{token}", response_model=InvitationInfo)
+def get_invitation_info(token: str, db: Session = Depends(get_db)):
+    """Get invitation details for acceptance"""
+    invitation = db.query(TenantInvitation).filter(
+        TenantInvitation.invitation_token == token,
+        TenantInvitation.status == 'pending'
+    ).first()
+    
+    if not invitation:
+        raise HTTPException(status_code=404, detail="Invitation not found or expired")
+    
+    # Check if expired
+    if invitation.expires_at < datetime.utcnow():
+        invitation.status = 'expired'
+        db.commit()
+        raise HTTPException(status_code=410, detail="Invitation has expired")
+    
+    # Get tenant and invited_by user info
+    tenant = db.query(Tenant).filter(Tenant.id == invitation.tenant_id).first()
+    invited_by = db.query(User).filter(User.id == invitation.invited_by).first()
+    invited_by_name = f"{invited_by.first_name} {invited_by.last_name}".strip() or invited_by.email
+    
+    return InvitationInfo(
+        tenant_name=tenant.name,
+        invited_by_name=invited_by_name,
+        email=invitation.email,
+        expires_at=invitation.expires_at
+    )
+
+@app.post("/auth/register-from-invitation", response_model=UserSchema)
+def register_from_invitation(
+    token: str,
+    user_data: InvitationAcceptance,
+    db: Session = Depends(get_db)
+):
+    """Accept invitation and create user account"""
+    from datetime import datetime
+    
+    # Find and validate invitation
+    invitation = db.query(TenantInvitation).filter(
+        TenantInvitation.invitation_token == token,
+        TenantInvitation.status == 'pending'
+    ).first()
+    
+    if not invitation:
+        raise HTTPException(status_code=404, detail="Invitation not found or already used")
+    
+    # Check if expired
+    if invitation.expires_at < datetime.utcnow():
+        invitation.status = 'expired'
+        db.commit()
+        raise HTTPException(status_code=410, detail="Invitation has expired")
+    
+    # Check if user already exists
+    existing_user = db.query(User).filter(User.email == invitation.email).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="User already exists")
+    
+    # Create user
+    hashed_password = get_password_hash(user_data.password)
+    db_user = User(
+        tenant_id=invitation.tenant_id,
+        email=invitation.email,
+        first_name=user_data.first_name,
+        last_name=user_data.last_name,
+        password_hash=hashed_password
+    )
+    
+    db.add(db_user)
+    
+    # Mark invitation as accepted
+    invitation.status = 'accepted'
+    invitation.accepted_at = datetime.utcnow()
+    
+    db.commit()
+    db.refresh(db_user)
+    
+    logger.info(f"User {invitation.email} accepted invitation to tenant {invitation.tenant_id}")
+    
+    return db_user
+
+@app.get("/tenants/invitations", response_model=list[TenantInvitationResponse])
+def list_tenant_invitations(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """List pending invitations for current user's tenant"""
+    invitations = db.query(TenantInvitation).filter(
+        TenantInvitation.tenant_id == current_user.tenant_id,
+        TenantInvitation.status == 'pending'
+    ).order_by(TenantInvitation.created_at.desc()).all()
+    
+    return invitations
+
+@app.get("/tenants/users", response_model=list[UserSchema])
+def list_tenant_users(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """List all users in current user's tenant"""
+    users = db.query(User).filter(
+        User.tenant_id == current_user.tenant_id
+    ).order_by(User.created_at.desc()).all()
+    
+    return users
+
+@app.post("/test/email")
+def test_email_service():
+    """Test email service connectivity"""
+    from email_service import email_service
+    
+    result = email_service.send_test_email("test@example.com")
+    return {"email_sent": result, "smtp_host": email_service.smtp_host, "smtp_port": email_service.smtp_port}
 
 @app.post("/projects/", response_model=ProjectSchema)
 def create_project(
