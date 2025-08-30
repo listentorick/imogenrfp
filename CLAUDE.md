@@ -233,10 +233,11 @@ docker-compose exec backend coverage report --show-missing
 The project now includes comprehensive test coverage reporting:
 
 **Current Test Coverage** (as of latest run):
-- **Question Answering Service**: 84% coverage (218 statements, 35 missed)
+- **Document Processor**: 98% coverage (183 statements, 3 missed) ⭐
+- **Question Answering Service**: 85% coverage (200 statements, 30 missed)
 - **Question Extraction Service**: 64% coverage (253 statements, 90 missed)  
 - **Models**: 100% coverage (181 statements, 0 missed)
-- **Overall Project**: 21% coverage (2818 statements, 2237 missed)
+- **Overall Project**: 27% coverage (2805 statements, 2038 missed)
 
 **Coverage Commands**:
 ```bash
@@ -251,8 +252,10 @@ docker-compose exec backend pytest --cov=question_answering_service --cov=questi
 ```
 
 **Key Test Files**:
-- `test_question_answering_comprehensive.py`: 22 tests covering semantic search, LLM integration, audit trails
+- `test_document_processor.py`: 30 tests covering file processing, vector storage, status updates
+- `test_question_answering_comprehensive.py`: 19 tests covering semantic search, LLM integration, audit trails
 - `test_excel_question_extraction.py`: 14 tests covering two-step Excel processing workflow
+- `test_document_deletion_simple.py`: 6 tests covering cascade deletion fix for foreign key constraints
 
 ### Manual Testing Tools
 - ChromaDB Browser at http://localhost:3001 for inspecting vector collections

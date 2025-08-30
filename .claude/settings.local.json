@@ -17,7 +17,8 @@
       "Bash(docker-compose up:*)",
       "Bash(grep:*)",
       "Bash(npx shadcn@latest add:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(python3 -m pytest test_document_deletion_fixed.py -v)"
     ],
     "deny": []
   }

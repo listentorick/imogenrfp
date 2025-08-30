@@ -13,7 +13,7 @@ import json
 import logging
 
 from database import get_db, engine
-from models import Base, User, Tenant, Project, Template, Document, Deal, Question, ProjectQAPair, QuestionAnswerAudit
+from models import Base, User, Tenant, Project, Template, Document, Deal, Question, ProjectQAPair, QuestionAnswerAudit, Export
 from schemas import (
     User as UserSchema, UserCreate, Tenant as TenantSchema, TenantCreate,
     Project as ProjectSchema, ProjectCreate, Template as TemplateSchema, TemplateCreate, Token, Document as DocumentSchema,
@@ -777,16 +777,57 @@ def delete_deal_document(
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
     
-    # Delete associated questions first (due to foreign key constraints)
+    # Delete associated exports first (due to foreign key constraints)
+    try:
+        exports = db.query(Export).filter(Export.document_id == document_id).all()
+        exports_deleted = 0
+        
+        for export in exports:
+            # Delete the export file from filesystem if it exists
+            if export.file_path and os.path.exists(export.file_path):
+                try:
+                    os.remove(export.file_path)
+                    logger.info(f"Deleted export file: {export.file_path}")
+                except Exception as e:
+                    logger.warning(f"Could not delete export file {export.file_path}: {e}")
+            
+            db.delete(export)
+            exports_deleted += 1
+            
+        if exports_deleted > 0:
+            logger.info(f"Deleted {exports_deleted} associated exports for document {document_id}")
+    except Exception as e:
+        logger.error(f"Error deleting associated exports: {e}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Error deleting associated exports")
+    
+    # Delete associated questions and their audit records (due to foreign key constraints)
     try:
         questions = db.query(Question).filter(Question.document_id == document_id).all()
+        total_audits_deleted = 0
+        total_qa_pairs_deleted = 0
+        
         for question in questions:
+            # First nullify project QA pairs that reference this question (preserve knowledge base data)
+            qa_pairs = db.query(ProjectQAPair).filter(ProjectQAPair.source_question_id == question.id).all()
+            for qa_pair in qa_pairs:
+                qa_pair.source_question_id = None  # Break the FK reference but keep the knowledge base entry
+            total_qa_pairs_deleted += len(qa_pairs)  # Count for logging (actually updated, not deleted)
+            
+            # Then delete audit records for this question
+            audits = db.query(QuestionAnswerAudit).filter(QuestionAnswerAudit.question_id == question.id).all()
+            for audit in audits:
+                db.delete(audit)
+            total_audits_deleted += len(audits)
+            
+            # Finally delete the question itself
             db.delete(question)
-        logger.info(f"Deleted {len(questions)} associated questions for document {document_id}")
+            
+        logger.info(f"Updated {total_qa_pairs_deleted} QA pairs (nullified source_question_id), deleted {total_audits_deleted} audit records and {len(questions)} associated questions for document {document_id}")
     except Exception as e:
-        logger.error(f"Error deleting associated questions: {e}")
+        logger.error(f"Error deleting associated questions and audits: {e}")
         db.rollback()
-        raise HTTPException(status_code=500, detail="Error deleting associated questions")
+        raise HTTPException(status_code=500, detail="Error deleting associated questions and audits")
     
     # Delete the file from filesystem
     try:
