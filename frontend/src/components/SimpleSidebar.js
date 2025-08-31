@@ -120,28 +120,23 @@ const SimpleSidebar = ({ isOpen, setIsOpen }) => {
         
         {/* Navigation */}
         <nav className="mt-6 flex-1">
-          {navigation.map((item) => {
-            const isActive = location.pathname === item.href;
-            return (
-              <Link
-                key={item.name}
-                to={item.href}
-                onClick={handleNavClick}
-                className={`
-                  flex items-center py-3 text-sm font-medium transition-all duration-200
-                  ${isActive
-                    ? 'bg-blue-900/50 border-r-2 border-blue-500 text-blue-300'
-                    : 'text-gray-300 hover:bg-gray-700'
-                  }
-                  ${isOpen || isMobile ? 'px-6' : 'px-3 justify-center'}
-                `}
-                title={!isOpen && !isMobile ? item.name : undefined}
-              >
-                <item.icon className={`h-5 w-5 ${(isOpen || isMobile) ? 'mr-3' : ''}`} />
-                {(isOpen || isMobile) && <span>{item.name}</span>}
-              </Link>
-            );
-          })}
+          {/* Dashboard */}
+          <Link
+            to="/"
+            onClick={handleNavClick}
+            className={`
+              flex items-center py-3 text-sm font-medium transition-all duration-200
+              ${location.pathname === '/'
+                ? 'bg-blue-900/50 border-r-2 border-blue-500 text-blue-300'
+                : 'text-gray-300 hover:bg-gray-700'
+              }
+              ${isOpen || isMobile ? 'px-6' : 'px-3 justify-center'}
+            `}
+            title={!isOpen && !isMobile ? 'Dashboard' : undefined}
+          >
+            <HomeIcon className={`h-5 w-5 ${(isOpen || isMobile) ? 'mr-3' : ''}`} />
+            {(isOpen || isMobile) && <span>Dashboard</span>}
+          </Link>
 
           {/* Projects Section */}
           <div className="mt-2">
@@ -204,6 +199,30 @@ const SimpleSidebar = ({ isOpen, setIsOpen }) => {
               </div>
             )}
           </div>
+
+          {/* Other Navigation Items */}
+          {navigation.slice(1).map((item) => {
+            const isActive = location.pathname === item.href;
+            return (
+              <Link
+                key={item.name}
+                to={item.href}
+                onClick={handleNavClick}
+                className={`
+                  flex items-center py-3 text-sm font-medium transition-all duration-200
+                  ${isActive
+                    ? 'bg-blue-900/50 border-r-2 border-blue-500 text-blue-300'
+                    : 'text-gray-300 hover:bg-gray-700'
+                  }
+                  ${isOpen || isMobile ? 'px-6' : 'px-3 justify-center'}
+                `}
+                title={!isOpen && !isMobile ? item.name : undefined}
+              >
+                <item.icon className={`h-5 w-5 ${(isOpen || isMobile) ? 'mr-3' : ''}`} />
+                {(isOpen || isMobile) && <span>{item.name}</span>}
+              </Link>
+            );
+          })}
         </nav>
 
         {/* Logout Button */}
