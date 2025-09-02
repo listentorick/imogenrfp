@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { api } from '../utils/api';
-import { ArrowLeftIcon, PencilIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, PencilIcon, PlusIcon } from '@heroicons/react/24/outline';
 import DocumentUpload from '../components/DocumentUpload';
 import DocumentsTable from '../components/DocumentsTable';
 import DealsTable from '../components/DealsTable';
@@ -59,6 +59,13 @@ const ProjectDetail = () => {
         }
       }
     }
+  );
+
+  // Fetch tenant information to check if this is the default project
+  const { data: tenant } = useQuery(
+    'tenant',
+    () => api.get('/tenants/me').then(res => res.data),
+    { staleTime: 5 * 60 * 1000 } // Cache for 5 minutes
   );
 
   const updateProjectMutation = useMutation(
@@ -122,16 +129,20 @@ const ProjectDetail = () => {
     );
   }
 
+  // Check if this is the default project
+  const isDefaultProject = tenant?.default_project_id === projectId;
+
   return (
     <div>
-      <div className="mb-6">
-        <button
-          onClick={() => navigate('/projects')}
-          className="flex items-center text-blue-600 hover:text-blue-800 mb-4"
-        >
-          <ArrowLeftIcon className="h-4 w-4 mr-1" />
-          Back to Projects
-        </button>
+      {!isDefaultProject && (
+        <div className="mb-6">
+          <button
+            onClick={() => navigate('/projects')}
+            className="flex items-center text-blue-600 hover:text-blue-800 mb-4"
+          >
+            <ArrowLeftIcon className="h-4 w-4 mr-1" />
+            Back to Projects
+          </button>
         
         <div className="bg-white shadow rounded-lg p-6">
           <div className="flex items-start justify-between mb-4">
@@ -205,12 +216,14 @@ const ProjectDetail = () => {
           </div>
         </div>
       </div>
+      )}
 
 
       {/* Tabs Navigation */}
-      <div className="mb-6">
-        <div className="border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8">
+      {!isDefaultProject && (
+        <div className="mb-6">
+          <div className="border-b border-gray-200">
+            <nav className="-mb-px flex space-x-8">
             <button
               onClick={() => handleTabChange('deals')}
               className={`py-2 px-1 border-b-2 font-medium text-sm ${
@@ -244,14 +257,37 @@ const ProjectDetail = () => {
           </nav>
         </div>
       </div>
+      )}
 
       {/* Tab Content */}
       <div className="mb-6">
         {activeTab === 'deals' && (
-          <DealsTable 
-            projectId={projectId}
-            onCreateDeal={() => setShowCreateDeal(true)}
-          />
+          <>
+            {isDefaultProject && (
+              <div className="mb-8">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Deals</h1>
+                    <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                      Manage your RFP opportunities and proposal workflows
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowCreateDeal(true)}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    <PlusIcon className="h-4 w-4 mr-2" />
+                    New Deal
+                  </button>
+                </div>
+              </div>
+            )}
+            <DealsTable 
+              projectId={projectId}
+              onCreateDeal={() => setShowCreateDeal(true)}
+              showHeader={!isDefaultProject}
+            />
+          </>
         )}
         
         {activeTab === 'documents' && (

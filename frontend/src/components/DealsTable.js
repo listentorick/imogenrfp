@@ -10,7 +10,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { getDeals, deleteDeal } from '../utils/api';
 
-const DealsTable = ({ projectId, onCreateDeal }) => {
+const DealsTable = ({ projectId, onCreateDeal, showHeader = true }) => {
   const navigate = useNavigate();
   const [deals, setDeals] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -192,16 +192,18 @@ const DealsTable = ({ projectId, onCreateDeal }) => {
     <div className="bg-white rounded-lg border border-gray-200">
       {/* Header with search and filters */}
       <div className="p-6 border-b border-gray-200">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-medium text-gray-900">Deals</h3>
-          <button
-            onClick={onCreateDeal}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-          >
-            <PlusIcon className="h-4 w-4 mr-2" />
-            New Deal
-          </button>
-        </div>
+        {showHeader && (
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-medium text-gray-900">Deals</h3>
+            <button
+              onClick={onCreateDeal}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              <PlusIcon className="h-4 w-4 mr-2" />
+              New Deal
+            </button>
+          </div>
+        )}
 
         <div className="flex flex-col sm:flex-row gap-4">
           {/* Search */}

@@ -142,113 +142,67 @@ const AskImogenTab = ({ projectId }) => {
 
   return (
     <div className="space-y-6">
-      {/* Ask Imogen Header */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-6">
-        <div className="flex items-center space-x-3 mb-4">
-          <div className="bg-blue-600 rounded-full p-2">
-            <ChatBubbleLeftRightIcon className="h-6 w-6 text-white" />
-          </div>
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900">Ask Imogen</h2>
-            <p className="text-gray-600">Search through your project documents using AI-powered vector search</p>
+      {/* Search Interface */}
+      <div className="flex items-center space-x-4">
+        <div className="flex-1">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Ask Imogen about your documents..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyPress={handleSearchKeyPress}
+              className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg"
+            />
+            <MagnifyingGlassIcon className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
+            {searchQuery && (
+              <button
+                onClick={clearSearch}
+                className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600"
+              >
+                <XMarkIcon className="h-5 w-5" />
+              </button>
+            )}
           </div>
         </div>
-        
-        {/* Search Interface */}
-        <div className="bg-white rounded-lg p-4 shadow-sm">
-          <div className="flex items-center space-x-4">
-            <div className="flex-1">
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Ask Imogen about your documents..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyPress={handleSearchKeyPress}
-                  className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg"
-                />
-                <MagnifyingGlassIcon className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
-                {searchQuery && (
-                  <button
-                    onClick={clearSearch}
-                    className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600"
-                  >
-                    <XMarkIcon className="h-5 w-5" />
-                  </button>
-                )}
-              </div>
-            </div>
-            <button
-              onClick={handleSearch}
-              disabled={!searchQuery.trim() || isSearching}
-              className="bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium"
-            >
-              {isSearching ? 'Searching...' : 'Ask Imogen'}
-            </button>
-            <button
-              onClick={handleShowChunks}
-              className="bg-gray-600 text-white py-3 px-4 rounded-lg hover:bg-gray-700 font-medium"
-            >
-              Show Chunks
-            </button>
-          </div>
-        </div>
-        
-        {/* Admin Controls - LangChain Migration Controls (commented out) */}
-        {false && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <h4 className="text-sm font-medium text-yellow-800">LangChain Migration Controls</h4>
-                <p className="text-xs text-yellow-700">Manage the transition to LangChain chunking</p>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={handleClearChunks}
-                disabled={isClearing}
-                className="bg-red-600 text-white py-2 px-4 rounded hover:bg-red-700 disabled:bg-gray-400 text-sm"
-              >
-                {isClearing ? 'Clearing...' : 'Clear All Chunks'}
-              </button>
-              <button
-                onClick={handleReprocessDocuments}
-                disabled={isReprocessing}
-                className="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 disabled:bg-gray-400 text-sm"
-              >
-                {isReprocessing ? 'Reprocessing...' : 'Reprocess with LangChain'}
-              </button>
-            </div>
-            <p className="text-xs text-yellow-600 mt-2">
-              Use "Clear All Chunks" to remove old chunks, then "Reprocess with LangChain" to create new ones.
-            </p>
-          </div>
-        )}
-        
-        {/* Search Suggestions */}
-        {!showSearchResults && (
-          <div className="mt-4">
-            <p className="text-sm text-gray-600 mb-3">Try asking questions like:</p>
-            <div className="flex flex-wrap gap-2">
-              {[
-                "What are the key requirements?",
-                "Show me pricing information",
-                "Find technical specifications",
-                "What are the deadlines?",
-                "Search for contact details"
-              ].map((suggestion, index) => (
-                <button
-                  key={index}
-                  onClick={() => setSearchQuery(suggestion)}
-                  className="text-sm bg-white border border-gray-200 rounded-full px-3 py-1 hover:bg-gray-50 text-gray-700"
-                >
-                  {suggestion}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+        <button
+          onClick={handleSearch}
+          disabled={!searchQuery.trim() || isSearching}
+          className="bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium"
+        >
+          {isSearching ? 'Searching...' : 'Ask Imogen'}
+        </button>
+        <button
+          onClick={handleShowChunks}
+          className="bg-gray-600 text-white py-3 px-4 rounded-lg hover:bg-gray-700 font-medium"
+        >
+          Show Chunks
+        </button>
       </div>
+      
+      {/* Search Suggestions */}
+      {!showSearchResults && (
+        <div className="mt-4">
+          <p className="text-sm text-gray-600 mb-3">Try asking questions like:</p>
+          <div className="flex flex-wrap gap-2">
+            {[
+              "What are the key requirements?",
+              "Show me pricing information",
+              "Find technical specifications",
+              "What are the deadlines?",
+              "Search for contact details"
+            ].map((suggestion, index) => (
+              <button
+                key={index}
+                onClick={() => setSearchQuery(suggestion)}
+                className="text-sm bg-white border border-gray-200 rounded-full px-3 py-1 hover:bg-gray-50 text-gray-700"
+              >
+                {suggestion}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Search Results */}
       {showSearchResults && (

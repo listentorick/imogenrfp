@@ -90,6 +90,22 @@ def register_user(user: UserCreate, tenant: TenantCreate, db: Session = Depends(
     db.commit()
     db.refresh(db_user)
     
+    # Create default project for the tenant
+    default_project = Project(
+        tenant_id=db_tenant.id,
+        name="Default Project",
+        description="Default project for organizing your knowledge base documents",
+        created_by=db_user.id
+    )
+    db.add(default_project)
+    db.commit()
+    db.refresh(default_project)
+    
+    # Update tenant with default project ID
+    db_tenant.default_project_id = default_project.id
+    db.commit()
+    db.refresh(db_tenant)
+    
     return db_user
 
 @app.post("/auth/login", response_model=Token)
@@ -112,6 +128,14 @@ def login_user(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = D
 @app.get("/users/me", response_model=UserSchema)
 def read_users_me(current_user: User = Depends(get_current_active_user)):
     return current_user
+
+@app.get("/tenants/me", response_model=TenantSchema)
+def get_current_tenant(current_user: User = Depends(get_current_active_user), db: Session = Depends(get_db)):
+    """Get current user's tenant information"""
+    tenant = db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    return tenant
 
 # Tenant Invitation Endpoints
 @app.post("/tenants/invitations", response_model=TenantInvitationResponse)

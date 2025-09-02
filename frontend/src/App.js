@@ -15,6 +15,8 @@ import Templates from './pages/Templates';
 import Team from './pages/Team';
 import UserSettings from './pages/UserSettings';
 import InvitationAccept from './pages/InvitationAccept';
+import KnowledgeDocuments from './pages/KnowledgeDocuments';
+import AskImogen from './pages/AskImogen';
 import DocumentQuestions from './components/DocumentQuestions';
 import DealQuestions from './components/DealQuestions';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -57,6 +59,20 @@ function App() {
                 <ProtectedRoute>
                   <Layout>
                     <ProjectDetail />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/projects/:projectId/knowledge" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <KnowledgeDocuments />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/projects/:projectId/ask-imogen" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <AskImogen />
                   </Layout>
                 </ProtectedRoute>
               } />

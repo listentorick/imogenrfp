@@ -69,10 +69,21 @@ const Team = () => {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Team Management</h1>
-        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-          Manage your team members and invite new users to join your organization
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Team Management</h1>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+              Manage your team members and invite new users to join your organization
+            </p>
+          </div>
+          <button
+            onClick={() => setShowInviteForm(true)}
+            className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors"
+          >
+            <PlusIcon className="h-4 w-4 mr-2" />
+            Invite User
+          </button>
+        </div>
       </div>
 
       {/* Success/Error Message */}
@@ -86,22 +97,12 @@ const Team = () => {
         </div>
       )}
 
-      {/* Invite User Section */}
-      <div className="mb-8 bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-medium text-gray-900 dark:text-white">Invite New Member</h2>
-          {!showInviteForm && (
-            <button
-              onClick={() => setShowInviteForm(true)}
-              className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors"
-            >
-              <PlusIcon className="h-4 w-4 mr-2" />
-              Invite User
-            </button>
-          )}
-        </div>
-
-        {showInviteForm && (
+      {/* Invite User Form */}
+      {showInviteForm && (
+        <div className="mb-8 bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-medium text-gray-900 dark:text-white">Invite New Member</h2>
+          </div>
           <form onSubmit={sendInvitation} className="space-y-4">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -139,8 +140,8 @@ const Team = () => {
               </button>
             </div>
           </form>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Team Members */}
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg">

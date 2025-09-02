@@ -13,7 +13,10 @@ import {
   XMarkIcon,
   ChevronRightIcon,
   ChevronDownIcon,
-  UsersIcon
+  UsersIcon,
+  BriefcaseIcon,
+  BookOpenIcon,
+  ChatBubbleLeftRightIcon
 } from '@heroicons/react/24/outline';
 
 const SimpleSidebar = ({ isOpen, setIsOpen }) => {
@@ -30,8 +33,30 @@ const SimpleSidebar = ({ isOpen, setIsOpen }) => {
     { staleTime: 5 * 60 * 1000 } // Cache for 5 minutes
   );
 
+  // Fetch tenant information for default project
+  const { data: tenant } = useQuery(
+    'tenant',
+    () => api.get('/tenants/me').then(res => res.data),
+    { staleTime: 5 * 60 * 1000 } // Cache for 5 minutes
+  );
+
   const navigation = [
     { name: 'Dashboard', href: '/', icon: HomeIcon },
+    { 
+      name: 'Deals', 
+      href: tenant?.default_project_id ? `/projects/${tenant.default_project_id}/deals` : '/projects', 
+      icon: BriefcaseIcon 
+    },
+    { 
+      name: 'Knowledge', 
+      href: tenant?.default_project_id ? `/projects/${tenant.default_project_id}/knowledge` : '/projects', 
+      icon: BookOpenIcon 
+    },
+    { 
+      name: 'Ask Imogen', 
+      href: tenant?.default_project_id ? `/projects/${tenant.default_project_id}/ask-imogen` : '/projects', 
+      icon: ChatBubbleLeftRightIcon 
+    },
     { name: 'Templates', href: '/templates', icon: DocumentDuplicateIcon },
     { name: 'Team', href: '/team', icon: UsersIcon },
     { name: 'Settings', href: '/settings', icon: CogIcon },
@@ -138,7 +163,31 @@ const SimpleSidebar = ({ isOpen, setIsOpen }) => {
             {(isOpen || isMobile) && <span>Dashboard</span>}
           </Link>
 
-          {/* Projects Section */}
+          {/* Other Navigation Items - first 3 items (Deals, Knowledge, Ask Imogen) */}
+          {navigation.slice(1, 4).map((item) => {
+            const isActive = location.pathname === item.href;
+            return (
+              <Link
+                key={item.name}
+                to={item.href}
+                onClick={handleNavClick}
+                className={`
+                  flex items-center py-3 text-sm font-medium transition-all duration-200
+                  ${isActive
+                    ? 'bg-blue-900/50 border-r-2 border-blue-500 text-blue-300'
+                    : 'text-gray-300 hover:bg-gray-700'
+                  }
+                  ${isOpen || isMobile ? 'px-6' : 'px-3 justify-center'}
+                `}
+                title={!isOpen && !isMobile ? item.name : undefined}
+              >
+                <item.icon className={`h-5 w-5 ${(isOpen || isMobile) ? 'mr-3' : ''}`} />
+                {(isOpen || isMobile) && <span>{item.name}</span>}
+              </Link>
+            );
+          })}
+
+          {/* Projects Section - moved after Ask Imogen */}
           <div className="mt-2">
             {/* Main Projects Item */}
             <div className="flex">
@@ -153,10 +202,10 @@ const SimpleSidebar = ({ isOpen, setIsOpen }) => {
                   }
                   ${isOpen || isMobile ? 'pl-6 pr-2' : 'px-3 justify-center'}
                 `}
-                title={!isOpen && !isMobile ? 'Projects' : undefined}
+                title={!isOpen && !isMobile ? 'Partitions' : undefined}
               >
                 <FolderIcon className={`h-5 w-5 ${(isOpen || isMobile) ? 'mr-3' : ''}`} />
-                {(isOpen || isMobile) && <span>Projects</span>}
+                {(isOpen || isMobile) && <span>Partitions</span>}
               </Link>
               
               {/* Expand/Collapse Button */}
@@ -200,8 +249,8 @@ const SimpleSidebar = ({ isOpen, setIsOpen }) => {
             )}
           </div>
 
-          {/* Other Navigation Items */}
-          {navigation.slice(1).map((item) => {
+          {/* Remaining Navigation Items - Templates, Team, Settings */}
+          {navigation.slice(4).map((item) => {
             const isActive = location.pathname === item.href;
             return (
               <Link

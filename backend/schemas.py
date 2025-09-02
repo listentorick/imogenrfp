@@ -13,6 +13,7 @@ class TenantCreate(TenantBase):
 
 class Tenant(TenantBase):
     id: UUID
+    default_project_id: Optional[UUID] = None
     created_at: datetime
     updated_at: datetime
 

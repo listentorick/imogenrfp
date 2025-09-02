@@ -12,7 +12,7 @@ import {
 import { api } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 
-const DocumentsTable = ({ projectId, onUploadClick }) => {
+const DocumentsTable = ({ projectId, onUploadClick, showHeader = true }) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
@@ -295,16 +295,18 @@ const DocumentsTable = ({ projectId, onUploadClick }) => {
     <div className="bg-white rounded-lg border border-gray-200">
       {/* Header with search and filters */}
       <div className="p-6 border-b border-gray-200">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-medium text-gray-900">Documents</h3>
-          <button
-            onClick={onUploadClick}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-          >
-            <PlusIcon className="h-4 w-4 mr-2" />
-            Upload Document
-          </button>
-        </div>
+        {showHeader && (
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-medium text-gray-900">Documents</h3>
+            <button
+              onClick={onUploadClick}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              <PlusIcon className="h-4 w-4 mr-2" />
+              Upload Document
+            </button>
+          </div>
+        )}
 
         <div className="flex flex-col sm:flex-row gap-4">
           {/* Search */}
