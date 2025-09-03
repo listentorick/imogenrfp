@@ -18,7 +18,9 @@
       "Bash(grep:*)",
       "Bash(npx shadcn@latest add:*)",
       "Bash(npm install:*)",
-      "Bash(python3 -m pytest test_document_deletion_fixed.py -v)"
+      "Bash(python3 -m pytest test_document_deletion_fixed.py -v)",
+      "WebFetch(domain:huggingface.co)",
+      "Bash(docker-compose build:*)"
     ],
     "deny": []
   }

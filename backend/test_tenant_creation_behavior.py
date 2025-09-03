@@ -38,8 +38,8 @@ class TestTenantCreationBehavior:
         with patch('main.get_password_hash', return_value="hashed_password"):
             register_user(user_data, tenant_data, mock_db)
         
-        # Verify that db.add was called twice (once for tenant, once for user)
-        assert mock_db.add.call_count == 2
+        # Verify that db.add was called three times (tenant, user, default project)
+        assert mock_db.add.call_count == 3
         
         # Verify tenant was created first
         first_add_call = mock_db.add.call_args_list[0][0][0]
@@ -56,9 +56,16 @@ class TestTenantCreationBehavior:
         # tenant_id should be set to the created tenant's id
         assert hasattr(second_add_call, 'tenant_id')
         
+        # Verify default project was created third
+        from models import Project
+        third_add_call = mock_db.add.call_args_list[2][0][0]
+        assert isinstance(third_add_call, Project)
+        assert third_add_call.name == "Default Project"
+        assert third_add_call.description == "Default project for organizing your knowledge base documents"
+        
         # Verify commit and refresh called
-        assert mock_db.commit.call_count == 2  # Once after tenant, once after user
-        assert mock_db.refresh.call_count == 2  # Once for tenant, once for user
+        assert mock_db.commit.call_count == 4  # Tenant, user, project, tenant update
+        assert mock_db.refresh.call_count == 4  # Tenant, user, project, tenant update
 
     def test_invitation_acceptance_does_not_create_tenant(self):
         """Test that /auth/register-from-invitation does NOT create a new tenant"""

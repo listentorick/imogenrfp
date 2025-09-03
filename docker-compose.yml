@@ -190,6 +190,23 @@ services:
     depends_on:
       - chromadb
 
+  reranker:
+    build:
+      context: ./reranker
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8000"
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
   mailhog:
     image: mailhog/mailhog:latest
     ports:

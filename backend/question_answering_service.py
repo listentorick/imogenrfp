@@ -15,7 +15,7 @@ class QuestionAnsweringService:
         self.model = "qwen3:4b"
         self.chroma_service = chroma_service
     
-    def perform_semantic_search(self, question: str, project_id: str, max_results: int = 5) -> List[Dict[str, Any]]:
+    def perform_semantic_search(self, question: str, project_id: str, max_results: int = 25) -> List[Dict[str, Any]]:
         """Perform semantic search against ChromaDB to find relevant context
         
         Returns:

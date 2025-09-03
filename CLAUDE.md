@@ -68,6 +68,7 @@ npm test
 - ChromaDB: http://localhost:8001
 - ChromaDB Browser: http://localhost:3001
 - Ollama: http://localhost:11434
+- Reranker Service: http://localhost:8002
 
 ## Architecture Overview
 
